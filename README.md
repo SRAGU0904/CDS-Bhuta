@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CDS Bhuta Sculpture Prototype
+
+This is a web-based prototype for displaying and interacting with a Bhuta sculpture model.
+
+The current version is built with Next.js, React Three Fiber, Three.js, and Drei. It displays a 3D sculpture on a pedestal, supports horizontal mouse rotation, and includes background music with a sound toggle button.
+
+## Tech Stack
+
+- Next.js
+- React
+- TypeScript
+- Three.js
+- React Three Fiber
+- Drei
+- Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install Node.js
+
+Before running the project, make sure Node.js is installed on your computer.
+
+Check the installation with:
 
 ```bash
+node -v
+npm -v
+
+If both commands return version numbers, Node.js and npm are installed correctly.
+
+2. Clone the Repository
+git clone <repository-url>
+cd <repository-folder>
+
+Replace <repository-url> with the GitHub repository URL, and <repository-folder> with the name of the cloned project folder.
+
+3. Install Dependencies
+
+Inside the project folder, run:
+
+npm install
+
+This installs all required packages, including Next.js, React, Three.js, React Three Fiber, and Drei.
+
+4. Run the Development Server
+
+Start the local development server:
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open the project in your browser:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+http://localhost:3000
+5. Stop the Development Server
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To stop the local development server, press:
 
-## Learn More
+Ctrl + C
 
-To learn more about Next.js, take a look at the following resources:
+in the terminal.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Development Notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The current prototype includes:
 
-## Deploy on Vercel
+A 3D Bhuta sculpture model
+A simple pedestal
+Horizontal mouse rotation
+Disabled zooming and panning
+Background music
+A sound toggle button in the upper-right corner
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Most browsers block automatic audio playback with sound. If the music does not start automatically, click the sound button once to enable it.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Future Development
+
+Planned or possible future features include:
+
+A dark Bhuta Kola video background
+Interaction-triggered background changes
+Sculpture color restoration during rotation
+Mobile device orientation control
+TouchDesigner-based control through WebSocket
+A more polished exhibition-style interface
