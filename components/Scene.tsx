@@ -5,14 +5,14 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 
 function Sculpture() {
-  const gltf = useGLTF("/models/bhuta-sculpture.glb");
+  const gltf = useGLTF("/models/panjurli.glb");
 
   return (
     <primitive
       object={gltf.scene}
-      scale={1.2}
-      position={[0, 0.75, 0]}
-      rotation={[-Math.PI / 2, 0, 3]}
+      scale={1.5}
+      position={[0, 0.12, 0]}
+      rotation={[-Math.PI / 2 , Math.PI / 180 , 0]}
     />
   );
 }
@@ -92,7 +92,7 @@ export default function Scene() {
         <ambientLight intensity={1.2} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
 
-        <group position={[0, -0.6, 0]}>
+        <group position={[0, -0.2, 0]}>
           <Pedestal />
           <Sculpture />
         </group>
