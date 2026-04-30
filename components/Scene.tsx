@@ -4,6 +4,127 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+
+type ControlMode = "phone" | "mouse";
+
+function useZigSimYaw(endpoint: string, pollMs = 100) {
+  const [smoothedYaw, setSmoothedYaw] = useState(0);
+  const targetYawRef = useRef(0);
+  const previousRawYawRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(endpoint, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          console.warn("Failed to fetch Zig Sim data:", response.status);
+          if (!cancelled) {
+            setTimeout(poll, pollMs);
+          }
+          return;
+        }
+
+        const data = (await response.json()) as {
+          latestPackets?: Array<{ raw: unknown; yawExtracted?: number | null }>;
+        };
+
+        // Get the most recent packet
+        const latest = data.latestPackets?.[data.latestPackets.length - 1];
+        if (latest) {
+          let yawDegrees: number | null =
+            typeof latest.yawExtracted === "number" ? latest.yawExtracted : null;
+
+          // Fallback: parse nested Zig Sim payload on the client.
+          if (
+            yawDegrees === null &&
+            latest.raw &&
+            typeof latest.raw === "object"
+          ) {
+            const raw = latest.raw as Record<string, unknown>;
+            const sensorData = raw.sensordata as Record<string, unknown> | undefined;
+
+            if (sensorData) {
+              const q = sensorData.quaternion as
+                | Record<string, unknown>
+                | undefined;
+
+              if (q) {
+                const w = typeof q.w === "number" ? q.w : null;
+                const x = typeof q.x === "number" ? q.x : null;
+                const y = typeof q.y === "number" ? q.y : null;
+                const z = typeof q.z === "number" ? q.z : null;
+
+                if (w !== null && x !== null && y !== null && z !== null) {
+                  const yawRad = Math.atan2(
+                    2 * (w * z + x * y),
+                    1 - 2 * (y * y + z * z)
+                  );
+                  yawDegrees = THREE.MathUtils.radToDeg(yawRad);
+                }
+              }
+            }
+          }
+
+          if (yawDegrees !== null && Number.isFinite(yawDegrees)) {
+            const rawYawRad = THREE.MathUtils.degToRad(yawDegrees);
+
+            if (previousRawYawRef.current === null) {
+              previousRawYawRef.current = rawYawRad;
+              targetYawRef.current = rawYawRad;
+            } else {
+              const delta = getShortestAngleDelta(
+                rawYawRad,
+                previousRawYawRef.current
+              );
+
+              previousRawYawRef.current = rawYawRad;
+              // Keep a continuous yaw signal to avoid +-PI wrap jumps.
+              targetYawRef.current += delta;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Zig Sim poll error:", err);
+      }
+
+      if (!cancelled) {
+        setTimeout(poll, pollMs);
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [endpoint, pollMs]);
+
+  useEffect(() => {
+    let frame = 0;
+
+    const animate = () => {
+      setSmoothedYaw((current) =>
+        THREE.MathUtils.lerp(current, targetYawRef.current, 0.2)
+      );
+      frame = window.requestAnimationFrame(animate);
+    };
+
+    frame = window.requestAnimationFrame(animate);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return smoothedYaw;
+}
 
 function collectMaterials(object: THREE.Object3D) {
   const materials: THREE.Material[] = [];
@@ -62,12 +183,24 @@ function getShortestAngleDelta(current: number, previous: number) {
   return delta;
 }
 
-function Sculpture({ controlsRef }: { controlsRef: React.RefObject<any> }) {
-  const fadedGltf = useGLTF("/models/panjurli_faded.glb");
-  const recoloredGltf = useGLTF("/models/panjurli_recolored.glb");
+function Sculpture({
+  controlsRef,
+  externalYaw,
+  controlMode,
+}: {
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+  externalYaw: number;
+  controlMode: ControlMode;
+}) {
+  const fadedGltf = useGLTF("/models/Panjurli_faded.glb");
+  const recoloredGltf = useGLTF("/models/Panjurli_recolored.glb");
 
-  const previousAzimuthRef = useRef<number | null>(null);
-  const accumulatedRightRotationRef = useRef(0);
+  const previousControlAngleRef = useRef<number | null>(null);
+  const colorProgressRef = useRef(0);
+
+  useEffect(() => {
+    previousControlAngleRef.current = null;
+  }, [controlMode]);
 
   const { fadedScene, recoloredScene, fadedMaterials, recoloredMaterials } =
     useMemo(() => {
@@ -97,56 +230,52 @@ function Sculpture({ controlsRef }: { controlsRef: React.RefObject<any> }) {
     }, [fadedGltf.scene, recoloredGltf.scene]);
 
   useFrame(() => {
-    const controls = controlsRef.current;
-    if (!controls) return;
+    const mouseAngle = controlsRef.current?.getAzimuthalAngle() ?? 0;
+    // OrbitControls azimuth is camera-centered, opposite to model yaw direction.
+    // Invert it so both phone and mouse use the same "model turns right" semantics.
+    const normalizedMouseAngle = -mouseAngle;
+    const currentAngle =
+      controlMode === "phone" ? externalYaw : normalizedMouseAngle;
 
-    const currentAzimuth = controls.getAzimuthalAngle();
+    if (previousControlAngleRef.current === null) {
+      previousControlAngleRef.current = currentAngle;
 
-    if (previousAzimuthRef.current === null) {
-      previousAzimuthRef.current = currentAzimuth;
-
-      setSceneOpacity(fadedScene, fadedMaterials, 1);
-      setSceneOpacity(recoloredScene, recoloredMaterials, 0);
+      setSceneOpacity(fadedScene, fadedMaterials, 1 - colorProgressRef.current);
+      setSceneOpacity(recoloredScene, recoloredMaterials, colorProgressRef.current);
 
       return;
     }
 
     const delta = getShortestAngleDelta(
-      currentAzimuth,
-      previousAzimuthRef.current
+      currentAngle,
+      previousControlAngleRef.current
     );
 
-    previousAzimuthRef.current = currentAzimuth;
+    previousControlAngleRef.current = currentAngle;
 
-   
-    if (delta < 0) {
-      accumulatedRightRotationRef.current += Math.abs(delta);
-    }
+    // Linear reversible mapping:
+    // right turn (negative delta) -> progress increases
+    // left turn (positive delta)  -> progress decreases
+    const step = -delta / (Math.PI * 2);
+    colorProgressRef.current = THREE.MathUtils.clamp(
+      colorProgressRef.current + step,
+      0,
+      1
+    );
 
-    const fullTurn = Math.PI * 2;
-
-    const phase = (accumulatedRightRotationRef.current / fullTurn) % 2;
-
-    /**
-     * phase:
-     * 0   = faded
-     * 1   = recolored
-     * 2   = faded
-     */
-    const mixValue = phase <= 1 ? phase : 2 - phase;
-
-    setSceneOpacity(fadedScene, fadedMaterials, 1 - mixValue);
-    setSceneOpacity(recoloredScene, recoloredMaterials, mixValue);
+    setSceneOpacity(fadedScene, fadedMaterials, 1 - colorProgressRef.current);
+    setSceneOpacity(recoloredScene, recoloredMaterials, colorProgressRef.current);
   });
 
   return (
     <group
-      scale={1.5}
       position={[0, 0.12, 0]}
-      rotation={[-Math.PI / 2, Math.PI / 180, 0]}
+      rotation={[0, controlMode === "phone" ? externalYaw : 0, 0]}
     >
-      <primitive object={fadedScene} />
-      <primitive object={recoloredScene} />
+      <group scale={1.5} rotation={[-Math.PI / 2, Math.PI / 180, 0]}>
+        <primitive object={fadedScene} />
+        <primitive object={recoloredScene} />
+      </group>
     </group>
   );
 }
@@ -219,8 +348,28 @@ function MusicControl() {
   );
 }
 
+function ControlModeToggle({
+  mode,
+  onToggle,
+}: {
+  mode: ControlMode;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className="fixed left-6 top-6 z-50 rounded-full bg-black/50 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-black/70"
+      aria-label="Toggle rotation control mode"
+    >
+      {mode === "phone" ? "Phone Control" : "Mouse Control"}
+    </button>
+  );
+}
+
 export default function Scene() {
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const zigSimYaw = useZigSimYaw("/api/zigsim");
+  const [controlMode, setControlMode] = useState<ControlMode>("phone");
 
   return (
     <div className="relative h-screen w-screen bg-black">
@@ -230,11 +379,16 @@ export default function Scene() {
 
         <group position={[0, -0.2, 0]}>
           <Pedestal />
-          <Sculpture controlsRef={controlsRef} />
+          <Sculpture
+            controlsRef={controlsRef}
+            externalYaw={zigSimYaw}
+            controlMode={controlMode}
+          />
         </group>
 
         <OrbitControls
           ref={controlsRef}
+          enableRotate={controlMode === "mouse"}
           enablePan={false}
           enableZoom={false}
           enableDamping={false}
@@ -245,9 +399,15 @@ export default function Scene() {
       </Canvas>
 
       <MusicControl />
+      <ControlModeToggle
+        mode={controlMode}
+        onToggle={() =>
+          setControlMode((prev) => (prev === "phone" ? "mouse" : "phone"))
+        }
+      />
     </div>
   );
 }
 
-useGLTF.preload("/models/panjurli_faded.glb");
-useGLTF.preload("/models/panjurli_recolored.glb");
+useGLTF.preload("/models/Panjurli_faded.glb");
+useGLTF.preload("/models/Panjurli_recolored.glb");

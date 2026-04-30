@@ -53,6 +53,7 @@ npm run dev
 Then open the project in your browser:
 
 http://localhost:3000
+
 ### 5. Stop the Development Server
 
 To stop the local development server, press:
@@ -60,6 +61,63 @@ To stop the local development server, press:
 Ctrl + C
 
 in the terminal.
+
+### 6. Connect Zig Sim to Control Rotation
+
+The app receives Zig Sim phone sensor data via HTTP POST and rotates the sculpture in real-time.
+
+#### Step 1: Get Your PC's IP Address
+
+Zig Sim on your phone needs to know your PC's network address.
+
+**Windows:**
+
+Open PowerShell and run:
+```powershell
+ipconfig
+```
+
+Look for **IPv4 Address** (starts with `192.168` or `10.`, not `127.0.0.1`).
+
+From the earlier output, your IP is: `172.20.10.2`
+
+#### Step 2: Configure Zig Sim Output
+
+In Zig Sim app:
+
+1. Set output method to **HTTP POST**
+2. Set target URL to: `http://172.20.10.2:3000`
+   - (Just the IP and port, no path needed)
+
+3. Send JSON payload with one of these formats:
+
+```json
+{ "yaw": 35.5 }
+```
+
+```json
+{ "attitude": { "yaw": 35.5 } }
+```
+
+```json
+{ "rotation": { "y": 35.5 } }
+```
+
+```json
+{ "data": { "yaw": 35.5 } }
+```
+
+#### How It Works
+
+- Zig Sim sends your phone's yaw angle via HTTP POST to `http://172.20.10.2:3000`
+- The app receives the data and saves the latest packets
+- Frontend polls every 100ms and smoothly rotates the sculpture to match
+
+#### Debugging
+
+- **View received data**: Open browser and go to `http://localhost:3000/api/zigsim` or `http://localhost:3000/`
+- **Check server logs**: Look at terminal where you ran `npm run dev` for incoming POST requests
+- **Connection issues**: Ensure PC and phone are on same network, firewall allows port 3000
 
 ### Development Notes
 
