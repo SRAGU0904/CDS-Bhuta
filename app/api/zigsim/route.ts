@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractYawDegrees } from "@/server/websocket";
+import { extractYawDegrees } from "@/server/zigsim";
 
 type DataPacket = {
   raw: unknown;
