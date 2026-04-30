@@ -269,7 +269,7 @@ function Sculpture({
 
   return (
     <group
-      position={[0, 0.12, 0]}
+      position={[0, 0.15, 0]}
       rotation={[0, controlMode === "phone" ? externalYaw : 0, 0]}
     >
       <group scale={1.5} rotation={[-Math.PI / 2, Math.PI / 180, 0]}>
@@ -283,7 +283,7 @@ function Sculpture({
 function Pedestal() {
   return (
     <mesh position={[0, -0.35, 0]}>
-      <cylinderGeometry args={[1.1, 1.25, 0.25, 64]} />
+      <cylinderGeometry args={[1.0, 1.25, 0.3, 64]} />
       <meshStandardMaterial color="#333333" />
     </mesh>
   );
@@ -335,7 +335,7 @@ function MusicControl() {
 
   return (
     <>
-      <audio ref={audioRef} src="/audio/bg-1.mp3" preload="auto" />
+      <audio ref={audioRef} src="/audio/bg-2.mp3" preload="auto" />
 
       <button
         onClick={toggleMusic}
