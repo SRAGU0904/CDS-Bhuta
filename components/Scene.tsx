@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 type ControlMode = "phone" | "mouse";
 
@@ -35,20 +35,23 @@ function useZigSimYaw(endpoint: string, pollMs = 100) {
           latestPackets?: Array<{ raw: unknown; yawExtracted?: number | null }>;
         };
 
-        // Get the most recent packet
         const latest = data.latestPackets?.[data.latestPackets.length - 1];
+
         if (latest) {
           let yawDegrees: number | null =
-            typeof latest.yawExtracted === "number" ? latest.yawExtracted : null;
+            typeof latest.yawExtracted === "number"
+              ? latest.yawExtracted
+              : null;
 
-          // Fallback: parse nested Zig Sim payload on the client.
           if (
             yawDegrees === null &&
             latest.raw &&
             typeof latest.raw === "object"
           ) {
             const raw = latest.raw as Record<string, unknown>;
-            const sensorData = raw.sensordata as Record<string, unknown> | undefined;
+            const sensorData = raw.sensordata as
+              | Record<string, unknown>
+              | undefined;
 
             if (sensorData) {
               const q = sensorData.quaternion as
@@ -66,6 +69,7 @@ function useZigSimYaw(endpoint: string, pollMs = 100) {
                     2 * (w * z + x * y),
                     1 - 2 * (y * y + z * z)
                   );
+
                   yawDegrees = THREE.MathUtils.radToDeg(yawRad);
                 }
               }
@@ -85,6 +89,7 @@ function useZigSimYaw(endpoint: string, pollMs = 100) {
               );
 
               previousRawYawRef.current = rawYawRad;
+
               // Keep a continuous yaw signal to avoid +-PI wrap jumps.
               targetYawRef.current += delta;
             }
@@ -113,6 +118,7 @@ function useZigSimYaw(endpoint: string, pollMs = 100) {
       setSmoothedYaw((current) =>
         THREE.MathUtils.lerp(current, targetYawRef.current, 0.2)
       );
+
       frame = window.requestAnimationFrame(animate);
     };
 
@@ -149,6 +155,7 @@ function collectMaterials(object: THREE.Object3D) {
       cloned.transparent = true;
       cloned.depthWrite = false;
       cloned.needsUpdate = true;
+
       child.material = cloned;
       materials.push(cloned);
     }
@@ -183,13 +190,68 @@ function getShortestAngleDelta(current: number, previous: number) {
   return delta;
 }
 
-function Sculpture({
-  controlsRef,
-  externalYaw,
+type ModelPair = {
+  fadedScene: THREE.Object3D;
+  recoloredScene: THREE.Object3D;
+  fadedMaterials: THREE.Material[];
+  recoloredMaterials: THREE.Material[];
+};
+
+function createModelPair(
+  fadedSource: THREE.Object3D,
+  recoloredSource: THREE.Object3D
+): ModelPair {
+  const fadedScene = fadedSource.clone(true);
+  const recoloredScene = recoloredSource.clone(true);
+
+  fadedScene.traverse((child) => {
+    child.renderOrder = 1;
+  });
+
+  recoloredScene.traverse((child) => {
+    child.renderOrder = 2;
+  });
+
+  const fadedMaterials = collectMaterials(fadedScene);
+  const recoloredMaterials = collectMaterials(recoloredScene);
+
+  setSceneOpacity(fadedScene, fadedMaterials, 1);
+  setSceneOpacity(recoloredScene, recoloredMaterials, 0);
+
+  return {
+    fadedScene,
+    recoloredScene,
+    fadedMaterials,
+    recoloredMaterials,
+  };
+}
+
+function ModelView({
+  pair,
+  position,
+  baseYaw,
+  yaw,
+}: {
+  pair: ModelPair;
+  position: [number, number, number];
+  baseYaw: number;
+  yaw: number;
+}) {
+  return (
+    <group position={position} rotation={[0, baseYaw + yaw, 0]}>
+      <group scale={1.5} rotation={[-Math.PI / 2, Math.PI / 180, 0]}>
+        <primitive object={pair.fadedScene} />
+        <primitive object={pair.recoloredScene} />
+      </group>
+    </group>
+  );
+}
+
+function DualSculpture({
+  yaw,
   controlMode,
 }: {
-  controlsRef: React.RefObject<OrbitControlsImpl | null>;
-  externalYaw: number;
+  yaw: number;
   controlMode: ControlMode;
 }) {
   const fadedGltf = useGLTF("/models/Panjurli_faded.glb");
@@ -202,46 +264,45 @@ function Sculpture({
     previousControlAngleRef.current = null;
   }, [controlMode]);
 
-  const { fadedScene, recoloredScene, fadedMaterials, recoloredMaterials } =
-    useMemo(() => {
-      const fadedScene = fadedGltf.scene.clone(true);
-      const recoloredScene = recoloredGltf.scene.clone(true);
+  const { frontPair, backPair } = useMemo(() => {
+    const frontPair = createModelPair(fadedGltf.scene, recoloredGltf.scene);
+    const backPair = createModelPair(fadedGltf.scene, recoloredGltf.scene);
 
-      fadedScene.traverse((child) => {
-        child.renderOrder = 1;
-      });
-
-      recoloredScene.traverse((child) => {
-        child.renderOrder = 2;
-      });
-
-      const fadedMaterials = collectMaterials(fadedScene);
-      const recoloredMaterials = collectMaterials(recoloredScene);
-
-      setSceneOpacity(fadedScene, fadedMaterials, 1);
-      setSceneOpacity(recoloredScene, recoloredMaterials, 0);
-
-      return {
-        fadedScene,
-        recoloredScene,
-        fadedMaterials,
-        recoloredMaterials,
-      };
-    }, [fadedGltf.scene, recoloredGltf.scene]);
+    return {
+      frontPair,
+      backPair,
+    };
+  }, [fadedGltf.scene, recoloredGltf.scene]);
 
   useFrame(() => {
-    const mouseAngle = controlsRef.current?.getAzimuthalAngle() ?? 0;
-    // OrbitControls azimuth is camera-centered, opposite to model yaw direction.
-    // Invert it so both phone and mouse use the same "model turns right" semantics.
-    const normalizedMouseAngle = -mouseAngle;
-    const currentAngle =
-      controlMode === "phone" ? externalYaw : normalizedMouseAngle;
+    const currentAngle = yaw;
 
     if (previousControlAngleRef.current === null) {
       previousControlAngleRef.current = currentAngle;
 
-      setSceneOpacity(fadedScene, fadedMaterials, 1 - colorProgressRef.current);
-      setSceneOpacity(recoloredScene, recoloredMaterials, colorProgressRef.current);
+      const progress = colorProgressRef.current;
+
+      setSceneOpacity(
+        frontPair.fadedScene,
+        frontPair.fadedMaterials,
+        1 - progress
+      );
+      setSceneOpacity(
+        frontPair.recoloredScene,
+        frontPair.recoloredMaterials,
+        progress
+      );
+
+      setSceneOpacity(
+        backPair.fadedScene,
+        backPair.fadedMaterials,
+        1 - progress
+      );
+      setSceneOpacity(
+        backPair.recoloredScene,
+        backPair.recoloredMaterials,
+        progress
+      );
 
       return;
     }
@@ -253,37 +314,71 @@ function Sculpture({
 
     previousControlAngleRef.current = currentAngle;
 
-    // Linear reversible mapping:
-    // right turn (negative delta) -> progress increases
-    // left turn (positive delta)  -> progress decreases
+    // Keep the original color logic:
+    // right turn, negative delta -> progress increases
+    // left turn, positive delta -> progress decreases
     const step = -delta / (Math.PI * 2);
+
     colorProgressRef.current = THREE.MathUtils.clamp(
       colorProgressRef.current + step,
       0,
       1
     );
 
-    setSceneOpacity(fadedScene, fadedMaterials, 1 - colorProgressRef.current);
-    setSceneOpacity(recoloredScene, recoloredMaterials, colorProgressRef.current);
+    const progress = colorProgressRef.current;
+
+    setSceneOpacity(
+      frontPair.fadedScene,
+      frontPair.fadedMaterials,
+      1 - progress
+    );
+    setSceneOpacity(
+      frontPair.recoloredScene,
+      frontPair.recoloredMaterials,
+      progress
+    );
+
+    setSceneOpacity(
+      backPair.fadedScene,
+      backPair.fadedMaterials,
+      1 - progress
+    );
+    setSceneOpacity(
+      backPair.recoloredScene,
+      backPair.recoloredMaterials,
+      progress
+    );
   });
 
   return (
-    <group
-      position={[0, 0.15, 0]}
-      rotation={[0, controlMode === "phone" ? externalYaw : 0, 0]}
-    >
-      <group scale={1.5} rotation={[-Math.PI / 2, Math.PI / 180, 0]}>
-        <primitive object={fadedScene} />
-        <primitive object={recoloredScene} />
+    <>
+      <group position={[-1.5, 0, 0]}>
+        <Pedestal position={[0, -0.35, 0]} />
+        <ModelView
+          pair={frontPair}
+          position={[0, 0.15, 0]}
+          baseYaw={0}
+          yaw={yaw}
+        />
       </group>
-    </group>
+
+      <group position={[1.5, 0, 0]}>
+        <Pedestal position={[0, -0.35, 0]} />
+        <ModelView
+          pair={backPair}
+          position={[0, 0.15, 0]}
+          baseYaw={Math.PI}
+          yaw={yaw}
+        />
+      </group>
+    </>
   );
 }
 
-function Pedestal() {
+function Pedestal({ position }: { position: [number, number, number] }) {
   return (
-    <mesh position={[0, -0.35, 0]}>
-      <cylinderGeometry args={[1.0, 1.25, 0.3, 64]} />
+    <mesh position={position}>
+      <cylinderGeometry args={[0.6, 0.8, 0.3, 64]} />
       <meshStandardMaterial color="#333333" />
     </mesh>
   );
@@ -300,37 +395,31 @@ function MusicControl() {
 
     audio.volume = 0.35;
     audio.loop = true;
-
-    const playMusic = async () => {
-      try {
-        await audio.play();
-        setIsPlaying(true);
-      } catch {
-        setIsPlaying(false);
-      }
-    };
-
-    playMusic();
   }, []);
 
-  const toggleMusic = async () => {
+  const toggleMusic = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (!isPlaying) {
-      try {
+    try {
+      if (!isPlaying) {
         audio.muted = false;
+        audio.currentTime = audio.currentTime || 0;
         await audio.play();
+
         setIsPlaying(true);
         setIsMuted(false);
-      } catch {
-        console.log("Audio playback was blocked by the browser.");
+        return;
       }
-      return;
-    }
 
-    audio.muted = !audio.muted;
-    setIsMuted(audio.muted);
+      audio.muted = !audio.muted;
+      setIsMuted(audio.muted);
+    } catch (error) {
+      console.log("Audio playback failed:", error);
+      setIsPlaying(false);
+    }
   };
 
   return (
@@ -338,6 +427,12 @@ function MusicControl() {
       <audio ref={audioRef} src="/audio/bg-2.mp3" preload="auto" />
 
       <button
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
+        onPointerUp={(event) => {
+          event.stopPropagation();
+        }}
         onClick={toggleMusic}
         className="fixed right-6 top-6 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-xl text-white backdrop-blur-md transition hover:bg-black/70"
         aria-label="Toggle music"
@@ -366,39 +461,85 @@ function ControlModeToggle({
   );
 }
 
+function ViewFrames() {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-10">
+      <div className="absolute left-[15vw] top-1/2 aspect-[9/16] h-[90vh] -translate-y-1/2 rounded-3xl border border-white/25" />
+      <div className="absolute right-[15vw] top-1/2 aspect-[9/16] h-[90vh] -translate-y-1/2 rounded-3xl border border-white/25" />
+    </div>
+  );
+}
+
 export default function Scene() {
-  const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const zigSimYaw = useZigSimYaw("/api/zigsim");
   const [controlMode, setControlMode] = useState<ControlMode>("phone");
 
+  const [mouseYaw, setMouseYaw] = useState(0);
+  const isDraggingRef = useRef(false);
+  const previousPointerXRef = useRef<number | null>(null);
+
+  const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (controlMode !== "mouse") return;
+
+    isDraggingRef.current = true;
+    previousPointerXRef.current = event.clientX;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (controlMode !== "mouse") return;
+    if (!isDraggingRef.current) return;
+    if (previousPointerXRef.current === null) return;
+
+    const deltaX = event.clientX - previousPointerXRef.current;
+    previousPointerXRef.current = event.clientX;
+
+    // Drag right -> sculpture turns right.
+    // This only changes the sculpture yaw, not the camera or pedestal.
+    setMouseYaw((current) => current - deltaX * 0.01);
+  };
+
+  const stopDragging = (event: PointerEvent<HTMLDivElement>) => {
+    if (controlMode !== "mouse") return;
+
+    isDraggingRef.current = false;
+    previousPointerXRef.current = null;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   return (
-    <div className="relative h-screen w-screen bg-black">
-      <Canvas camera={{ position: [0, 1.0, 4], fov: 45 }}>
+    <div
+      className="relative h-screen w-screen touch-none bg-black"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={stopDragging}
+      onPointerCancel={stopDragging}
+      onPointerLeave={stopDragging}
+    >
+      <Canvas
+        orthographic
+        camera={{
+          position: [0, 1.0, 5],
+          zoom: 250,
+        }}
+      >
         <ambientLight intensity={1.2} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
 
         <group position={[0, -0.2, 0]}>
-          <Pedestal />
-          <Sculpture
-            controlsRef={controlsRef}
-            externalYaw={zigSimYaw}
-            controlMode={controlMode}
-          />
+          <DualSculpture yaw={activeYaw} controlMode={controlMode} />
         </group>
-
-        <OrbitControls
-          ref={controlsRef}
-          enableRotate={controlMode === "mouse"}
-          enablePan={false}
-          enableZoom={false}
-          enableDamping={false}
-          autoRotate={false}
-          minPolarAngle={Math.PI / 2}
-          maxPolarAngle={Math.PI / 2}
-        />
       </Canvas>
 
+      <ViewFrames />
+
       <MusicControl />
+
       <ControlModeToggle
         mode={controlMode}
         onToggle={() =>
