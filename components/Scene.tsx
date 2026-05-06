@@ -27,6 +27,7 @@ type StatueConfig = {
   heightAxis: "y" | "z";
   fixedScale?: number;
   autoBaseRadiusFactor?: number;
+  baseYaw?: number;
 };
 
 const STATUE_CONFIGS: StatueConfig[] = [
@@ -36,6 +37,7 @@ const STATUE_CONFIGS: StatueConfig[] = [
     modelRotation: [-Math.PI / 2, Math.PI / 180, 0],
     heightAxis: "z",
     autoBaseRadiusFactor: 0.75,
+    baseYaw: 0, // Head faces front
   },
   {
     id: "deity",
@@ -44,6 +46,7 @@ const STATUE_CONFIGS: StatueConfig[] = [
     heightAxis: "y",
     // no fixedScale → auto-sized to a fraction of pedestal top radius
     autoBaseRadiusFactor: 0.75,
+    baseYaw: 0,
   },
 ];
 
@@ -458,7 +461,8 @@ function DualSculpture({
 
   const previousAngleRef = useRef<number | null>(null);
   const colorProgressRef = useRef(0);
-  const totalRotationRef = useRef(0); // accumulated absolute rotation in radians
+  const totalRotationRef = useRef(0); // accumulated rotation in same direction (radians)
+  const rotationDirectionRef = useRef<"cw" | "ccw" | null>(null); // current direction: clockwise or counter-clockwise
   const lastActivityRef = useRef(Date.now());
   const hasSwitchedRef = useRef(false); // prevents double-firing the switch
   const displayYawRef = useRef(0);     // smoothed yaw used for rendering; lerps to 0 on idle
@@ -469,6 +473,7 @@ function DualSculpture({
     previousAngleRef.current = null;
     colorProgressRef.current = 0;
     totalRotationRef.current = 0;
+    rotationDirectionRef.current = null;
     hasSwitchedRef.current = false;
     lastActivityRef.current = Date.now();
     displayYawRef.current = 0;
@@ -526,7 +531,7 @@ function DualSculpture({
 
     if (previousAngleRef.current === null) {
       previousAngleRef.current = currentAngle;
-      displayYawRef.current = currentAngle;
+      displayYawRef.current = 0; // Always start from front-facing position
       applyColorProgress(frontPair, backPair, colorProgressRef.current);
       return;
     }
@@ -543,9 +548,20 @@ function DualSculpture({
 
     if (absDelta > ACTIVITY_THRESHOLD_RAD) {
       lastActivityRef.current = now;
+
+      // Determine rotation direction: negative delta = clockwise, positive = counter-clockwise
+      const currentDirection = delta < 0 ? "cw" : "ccw";
+
+      // If direction changes, reset rotation counter
+      if (rotationDirectionRef.current !== null && rotationDirectionRef.current !== currentDirection) {
+        totalRotationRef.current = 0;
+      }
+      rotationDirectionRef.current = currentDirection;
+
+      // Accumulate rotation in the same direction
       totalRotationRef.current += absDelta;
 
-      // After 3 full rotations, hand off to the next statue
+      // After 3 full rotations in same direction, hand off to the next statue
       if (!hasSwitchedRef.current && totalRotationRef.current >= SWITCH_THRESHOLD_RAD) {
         hasSwitchedRef.current = true;
         onSwitchStatue();
@@ -574,11 +590,20 @@ function DualSculpture({
         colorProgressRef.current = 0;
       }
 
-      // Smoothly return rotation to 0
+      // Smoothly return rotation to 0 via shortest path
       if (Math.abs(displayYawRef.current) > 0.001) {
+        // Calculate shortest angular distance to 0
+        let shortestDelta = displayYawRef.current;
+        if (shortestDelta > Math.PI) {
+          shortestDelta -= Math.PI * 2;
+        }
+        if (shortestDelta < -Math.PI) {
+          shortestDelta += Math.PI * 2;
+        }
+        // Lerp along the shortest path
         displayYawRef.current = THREE.MathUtils.lerp(
           displayYawRef.current,
-          0,
+          displayYawRef.current - shortestDelta,
           IDLE_LERP_SPEED
         );
       } else {
@@ -602,7 +627,7 @@ function DualSculpture({
         <ModelView
           pair={frontPair}
           position={[0, MODEL_POSITION_Y, 0]}
-          baseYaw={0}
+          baseYaw={config.baseYaw ?? 0}
           yaw={displayYaw}
           modelRotation={config.modelRotation}
           scale={activeScale}
@@ -614,7 +639,7 @@ function DualSculpture({
         <ModelView
           pair={backPair}
           position={[0, MODEL_POSITION_Y, 0]}
-          baseYaw={Math.PI}
+          baseYaw={(config.baseYaw ?? 0) + Math.PI}
           yaw={displayYaw}
           modelRotation={config.modelRotation}
           scale={activeScale}
@@ -713,6 +738,14 @@ export default function Scene() {
   const previousPointerXRef = useRef<number | null>(null);
 
   const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
+
+  // When switching control modes, sync yaw to prevent the statue from jumping
+  useEffect(() => {
+    if (controlMode === "mouse") {
+      // Just switched to mouse control: initialize mouseYaw to current position
+      setMouseYaw(zigSimYaw);
+    }
+  }, [controlMode]); // Only depend on controlMode, not zigSimYaw
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (controlMode !== "mouse") return;
