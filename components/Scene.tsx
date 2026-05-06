@@ -38,7 +38,7 @@ const STATUE_CONFIGS: StatueConfig[] = [
     autoBaseRadiusFactor: 0.75,
   },
   {
-    id: "box",
+    id: "deity",
     // Procedural test statue is Y-up by default
     modelRotation: [0, 0, 0],
     heightAxis: "y",
@@ -450,8 +450,11 @@ function DualSculpture({
   statueIndex: number;
   onSwitchStatue: () => void;
 }) {
-  const fadedGltf = useGLTF("/models/Panjurli_faded.glb");
-  const recoloredGltf = useGLTF("/models/Panjurli_recolored.glb");
+  const fadedPanjurli = useGLTF("/models/Panjurli_faded.glb");
+  const recoloredPanjurli = useGLTF("/models/Panjurli_recolored.glb");
+
+  const fadedDeity = useGLTF("/models/Deity_faded.glb");
+  const recoloredDeity = useGLTF("/models/Deity_recolored.glb");
 
   const previousAngleRef = useRef<number | null>(null);
   const colorProgressRef = useRef(0);
@@ -480,13 +483,13 @@ function DualSculpture({
     let sourceScene: THREE.Object3D;
 
     if (config.id === "panjurli") {
-      frontPair = createModelPair(fadedGltf.scene, recoloredGltf.scene);
-      backPair = createModelPair(fadedGltf.scene, recoloredGltf.scene);
-      sourceScene = fadedGltf.scene;
-    } else if (config.id === "box") {
-      frontPair = createBoxPair();
-      backPair = createBoxPair();
-      sourceScene = frontPair.fadedScene;
+      frontPair = createModelPair(fadedPanjurli.scene, recoloredPanjurli.scene);
+      backPair = createModelPair(fadedPanjurli.scene, recoloredPanjurli.scene);
+      sourceScene = fadedPanjurli.scene;
+    } else if (config.id === "deity") {
+      frontPair = createModelPair(fadedDeity.scene, recoloredDeity.scene);
+      backPair = createModelPair(fadedDeity.scene, recoloredDeity.scene);
+      sourceScene = fadedDeity.scene;
     } else {
       frontPair = createProceduralPair();
       backPair = createProceduralPair();
@@ -520,7 +523,7 @@ function DualSculpture({
     const verticalShift = config.fixedScale !== undefined ? 0 : (overflow > 0 ? -(overflow + 0.1) : 0);
 
     return { frontPair, backPair, metrics, activeScale, verticalShift };
-  }, [fadedGltf.scene, recoloredGltf.scene, statueIndex]);
+  }, [fadedPanjurli.scene, recoloredPanjurli.scene, fadedDeity.scene, recoloredDeity.scene, statueIndex]);
 
   useFrame(() => {
     const currentAngle = yaw;
@@ -784,3 +787,5 @@ export default function Scene() {
 
 useGLTF.preload("/models/Panjurli_faded.glb");
 useGLTF.preload("/models/Panjurli_recolored.glb");
+useGLTF.preload("/models/Deity_faded.glb");
+useGLTF.preload("/models/Deity_recolored.glb");
