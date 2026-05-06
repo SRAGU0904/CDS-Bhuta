@@ -496,7 +496,8 @@ function DualSculpture({
       sourceScene = frontPair.fadedScene;
     }
 
-    // Use fixedScale if specified; otherwise fit statue footprint against pedestal radius.
+    // Use fixedScale if specified; otherwise fit statue footprint against pedestal radius
+    // and ensure it doesn't exceed available vertical space.
     let activeScale: number;
     if (config.fixedScale !== undefined) {
       activeScale = config.fixedScale;
@@ -505,22 +506,16 @@ function DualSculpture({
         PEDESTAL_TOP_RADIUS *
         (config.autoBaseRadiusFactor ?? 1);
       const baseMetrics = computeMetrics(sourceScene, config, 1.0);
-      activeScale = Math.max(
+      const maxHeightScale = 1.6 / baseMetrics.renderedHeight; // fit within frame
+      const widthScale = Math.max(
         0.3,
         Math.min(3.0, targetBaseRadius / baseMetrics.renderedBaseRadius)
       );
+      activeScale = Math.min(widthScale, maxHeightScale);
     }
 
     const metrics = computeMetrics(sourceScene, config, activeScale);
-
-    // Compute vertical shift: if the statue top would overflow the visible frame,
-    // push the entire ensemble downward so the pedestal descends in the frame.
-    // Outer group in Scene sits at world y=-0.2; frame top (90vh) in group-local Y:
-    const screenH = typeof window !== "undefined" ? window.innerHeight : 1080;
-    const frameTopInGroupY = (screenH * 0.9) / 500 + 0.2;
-    const statueTopInGroupY = MODEL_POSITION_Y + metrics.renderedHeight;
-    const overflow = statueTopInGroupY - frameTopInGroupY;
-    const verticalShift = config.fixedScale !== undefined ? 0 : (overflow > 0 ? -(overflow + 0.1) : 0);
+    const verticalShift = 0;
 
     return { frontPair, backPair, metrics, activeScale, verticalShift };
   }, [fadedPanjurli.scene, recoloredPanjurli.scene, fadedDeity.scene, recoloredDeity.scene, statueIndex]);
@@ -688,8 +683,10 @@ function ControlModeToggle({
 }) {
   return (
     <button
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
       onClick={onToggle}
-      className="fixed left-6 top-6 z-50 rounded-full bg-black/50 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-black/70"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-black/50 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-black/70"
       aria-label="Toggle rotation control mode"
     >
       {mode === "phone" ? "Phone Control" : "Mouse Control"}
