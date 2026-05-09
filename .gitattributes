@@ -1,0 +1,12 @@
+# Normalise all text files to LF in the repository.
+# Prevents CRLF/LF noise on Windows checkouts.
+* text=auto eol=lf
+
+# Treat binary assets as binary — never touch line endings.
+*.glb    binary
+*.png    binary
+*.jpg    binary
+*.mp3    binary
+*.ttf    binary
+*.woff   binary
+*.woff2  binary
