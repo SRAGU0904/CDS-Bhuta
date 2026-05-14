@@ -27,7 +27,7 @@ export const STATUE_CONFIGS: StatueConfig[] = [
     heightAxis: "y",
     autoBaseRadiusFactor: 0.75,
     baseYaw: 0,
-    partIDTexturePath: "/models/deity_original_Material.003_BaseColor.png",
+    partIDTexturePath: "/models/Deity_MaskColorMap.png",
     regions: DEITY_REGIONS,
   },
 ];

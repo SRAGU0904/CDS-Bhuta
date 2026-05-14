@@ -89,11 +89,12 @@ function setColoringOpacity(
   opacity: number
 ) {
   const safe = THREE.MathUtils.clamp(opacity, 0, 1);
+  const isOpaque = safe >= 0.999;
   frontScene.visible = safe > 0.01;
   backScene.visible  = safe > 0.01;
   mat.opacity     = safe;
-  mat.transparent = true;
-  mat.depthWrite  = false;
+  mat.transparent = !isOpaque;
+  mat.depthWrite  = isOpaque;
 }
 
 // ─── Dual Sculpture ───────────────────────────────────────────────────────────
@@ -117,7 +118,7 @@ export function DualSculpture({
   const recoloredPanjurli = useGLTF("/models/Panjurli_recolored.glb");
   const fadedDeity        = useGLTF("/models/Deity_faded.glb");
   const recoloredDeity    = useGLTF("/models/Deity_recolored.glb");
-  const deityPartIDTexture = useTexture("/models/deity_original_Material.003_BaseColor.png");
+  const deityPartIDTexture = useTexture("/models/Deity_MaskColorMap.png");
 
   const previousAngleRef     = useRef<number | null>(null);
   const colorProgressRef     = useRef(0);

@@ -49,9 +49,11 @@ export function setSceneOpacity(
 ) {
   const safeOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
   scene.visible = safeOpacity > 0.01;
+  const isOpaque = safeOpacity >= 0.999;
+
   materials.forEach((mat) => {
-    mat.transparent = true;
-    mat.depthWrite = false;
+    mat.transparent = !isOpaque;
+    mat.depthWrite = isOpaque;
     mat.opacity = safeOpacity;
     mat.needsUpdate = true;
   });
