@@ -159,5 +159,5 @@ export default function Scene() {
 
 useGLTF.preload("/models/Panjurli_faded.glb");
 useGLTF.preload("/models/Panjurli_recolored.glb");
-useGLTF.preload("/models/Deity_faded.glb");
-useGLTF.preload("/models/Deity_recolored.glb");
+useGLTF.preload("/models/Nandigona_faded.glb");
+useGLTF.preload("/models/Nandigona_recolored.glb");

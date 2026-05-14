@@ -116,9 +116,9 @@ export function DualSculpture({
 }) {
   const fadedPanjurli     = useGLTF("/models/Panjurli_faded.glb");
   const recoloredPanjurli = useGLTF("/models/Panjurli_recolored.glb");
-  const fadedDeity        = useGLTF("/models/Deity_faded.glb");
-  const recoloredDeity    = useGLTF("/models/Deity_recolored.glb");
-  const deityPartIDTexture = useTexture("/models/Deity_MaskColorMap.png");
+  const fadedNandigona        = useGLTF("/models/Nandigona_faded.glb");
+  const recoloredNandigona    = useGLTF("/models/Nandigona_recolored.glb");
+  const nandigonaPartIDTexture = useTexture("/models/Nandigona_MaskColorMap.png");
 
   const previousAngleRef     = useRef<number | null>(null);
   const colorProgressRef     = useRef(0);
@@ -166,10 +166,10 @@ export function DualSculpture({
       frontPair   = createModelPair(fadedPanjurli.scene, recoloredPanjurli.scene);
       backPair    = createModelPair(fadedPanjurli.scene, recoloredPanjurli.scene);
       sourceScene = fadedPanjurli.scene;
-    } else if (config.id === "deity") {
-      frontPair   = createModelPair(fadedDeity.scene, recoloredDeity.scene);
-      backPair    = createModelPair(fadedDeity.scene, recoloredDeity.scene);
-      sourceScene = fadedDeity.scene;
+    } else if (config.id === "nandigona") {
+      frontPair   = createModelPair(fadedNandigona.scene, recoloredNandigona.scene);
+      backPair    = createModelPair(fadedNandigona.scene, recoloredNandigona.scene);
+      sourceScene = fadedNandigona.scene;
     } else {
       frontPair   = createProceduralPair();
       backPair    = createProceduralPair();
@@ -184,11 +184,11 @@ export function DualSculpture({
     let coloringUniforms:   ColoringUniforms | null         = null;
     let coloringMaterial:   THREE.MeshStandardMaterial | null = null;
 
-    if (config.regions && config.id === "deity") {
+    if (config.regions && config.id === "nandigona") {
       // Source material from faded GLB — preserves PBR properties (normals,
       // roughness, etc.) while coloring shader overrides the diffuse color.
       let sourceMat: THREE.MeshStandardMaterial | null = null;
-      fadedDeity.scene.traverse((child) => {
+      fadedNandigona.scene.traverse((child) => {
         if (sourceMat) return;
         if (child instanceof THREE.Mesh) {
           const mat = Array.isArray(child.material) ? child.material[0] : child.material;
@@ -197,11 +197,11 @@ export function DualSculpture({
       });
 
       // Align flipY with GLTFLoader convention (flipY=false on embedded textures)
-      deityPartIDTexture.flipY = false;
-      deityPartIDTexture.needsUpdate = true;
+      nandigonaPartIDTexture.flipY = false;
+      nandigonaPartIDTexture.needsUpdate = true;
 
       if (sourceMat) {
-        const result = buildColoringMaterial(sourceMat, deityPartIDTexture);
+        const result = buildColoringMaterial(sourceMat, nandigonaPartIDTexture);
         coloringMaterial = result.material;
         coloringUniforms = result.colorUniforms;
 
@@ -222,9 +222,9 @@ export function DualSculpture({
         };
 
         // Clone from faded GLB — coloring mode shows faded base + selected colors
-        coloringFrontScene = fadedDeity.scene.clone(true);
+        coloringFrontScene = fadedNandigona.scene.clone(true);
         stamp(coloringFrontScene);
-        coloringBackScene = fadedDeity.scene.clone(true);
+        coloringBackScene = fadedNandigona.scene.clone(true);
         stamp(coloringBackScene);
       }
     }
@@ -236,8 +236,8 @@ export function DualSculpture({
     };
   }, [
     fadedPanjurli.scene, recoloredPanjurli.scene,
-    fadedDeity.scene, recoloredDeity.scene,
-    deityPartIDTexture, statueIndex,
+    fadedNandigona.scene, recoloredNandigona.scene,
+    nandigonaPartIDTexture, statueIndex,
   ]);
 
   // Sync coloring uniforms whenever selections change

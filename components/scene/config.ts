@@ -1,6 +1,6 @@
 import type { RegionDef, StatueConfig } from "./types";
 
-export const DEITY_REGIONS: RegionDef[] = [
+export const NANDIGONA_REGIONS: RegionDef[] = [
   { id: "necklace",       label: "Necklace",           grayMin: 0.000,  grayMax: 0.0625 },
   { id: "body",           label: "Body",               grayMin: 0.0625, grayMax: 0.1875 },
   { id: "eyeliner",       label: "Eyeliner & Pupils",  grayMin: 0.1875, grayMax: 0.3125 },
@@ -22,12 +22,12 @@ export const STATUE_CONFIGS: StatueConfig[] = [
     // no partIDTexturePath — coloring not yet available for panjurli
   },
   {
-    id: "deity",
+    id: "nandigona",
     modelRotation: [0, 0, 0],
     heightAxis: "y",
     autoBaseRadiusFactor: 0.75,
     baseYaw: 0,
-    partIDTexturePath: "/models/Deity_MaskColorMap.png",
-    regions: DEITY_REGIONS,
+    partIDTexturePath: "/models/Nandigona_MaskColorMap.png",
+    regions: NANDIGONA_REGIONS,
   },
 ];
