@@ -106,6 +106,7 @@ export function DualSculpture({
   onSwitchStatue,
   coloringModeState,
   confirmedSelections,
+  onDisplayYawChange,
 }: {
   yaw: number;
   controlMode: string;
@@ -113,6 +114,7 @@ export function DualSculpture({
   onSwitchStatue: () => void;
   coloringModeState: ColoringModeState;
   confirmedSelections: Record<string, string> | null;
+  onDisplayYawChange?: (yaw: number) => void;
 }) {
   const fadedPanjurli     = useGLTF("/models/Panjurli_faded.glb");
   const recoloredPanjurli = useGLTF("/models/Panjurli_recolored.glb");
@@ -144,6 +146,7 @@ export function DualSculpture({
     lastActivityRef.current      = Date.now();
     displayYawRef.current        = 0;
     setDisplayYaw(0);
+    onDisplayYawChange?.(0);
   }, [statueIndex, controlMode, coloringModeState.active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
@@ -334,6 +337,7 @@ export function DualSculpture({
     }
 
     setDisplayYaw(displayYawRef.current);
+    onDisplayYawChange?.(displayYawRef.current);
     applyOpacities(colorProgressRef.current);
 
     // ── Inner helper: drive scene visibility ────────────────────────────────
@@ -363,7 +367,7 @@ export function DualSculpture({
 
   return (
     <group>
-      <group position={[-1.5, 0, 0]}>
+      <group position={[-1.4, 0, 0]}>
         <Pedestal metrics={metrics} />
         <ModelView
           pair={frontPair}
@@ -376,7 +380,7 @@ export function DualSculpture({
         />
       </group>
 
-      <group position={[1.5, 0, 0]}>
+      <group position={[1.4, 0, 0]}>
         <Pedestal metrics={metrics} />
         <ModelView
           pair={backPair}

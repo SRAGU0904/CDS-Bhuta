@@ -14,7 +14,12 @@ import { STATUE_CONFIGS } from "./scene/config";
 import { useZigSimYaw } from "./scene/useZigSimYaw";
 import { DualSculpture } from "./scene/DualSculpture";
 import { ColoringPanel } from "./scene/ColoringPanel";
-import { MusicControl, ControlModeToggle, ViewFrames } from "./scene/UI";
+import {
+  MusicControl,
+  ControlModeToggle,
+  PanoramaFrames,
+  ViewFrames,
+} from "./scene/UI";
 
 export default function Scene() {
   const zigSimYaw = useZigSimYaw("/api/zigsim");
@@ -33,6 +38,7 @@ export default function Scene() {
   const currentConfig = STATUE_CONFIGS[statueIndex];
   const canColor = !!currentConfig.regions;
   const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
+  const [displayYaw, setDisplayYaw] = useState(0);
 
   // Exit coloring mode when switching to a statue that doesn't support it
   useEffect(() => {
@@ -102,7 +108,15 @@ export default function Scene() {
       onPointerCancel={stopDragging}
       onPointerLeave={stopDragging}
     >
-      <Canvas orthographic camera={{ position: [0, 1.0, 5], zoom: 250 }}>
+      <PanoramaFrames yaw={displayYaw} />
+
+      <Canvas
+        className="relative z-10"
+        orthographic
+        gl={{ alpha: true }}
+        onCreated={({ gl }) => gl.setClearColor("#000000", 0)}
+        camera={{ position: [0, 1.0, 5], zoom: 250 }}
+      >
         <ambientLight intensity={1.2} />
         <directionalLight position={[3, 4, 5]} intensity={2} />
 
@@ -116,6 +130,7 @@ export default function Scene() {
             }
             coloringModeState={coloringModeState}
             confirmedSelections={confirmedSelections}
+            onDisplayYawChange={setDisplayYaw}
           />
         </group>
       </Canvas>
