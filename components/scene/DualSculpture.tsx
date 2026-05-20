@@ -106,6 +106,7 @@ export function DualSculpture({
   onSwitchStatue,
   coloringModeState,
   confirmedSelections,
+  onIdleReset,
   onDisplayYawChange,
 }: {
   yaw: number;
@@ -114,13 +115,18 @@ export function DualSculpture({
   onSwitchStatue: () => void;
   coloringModeState: ColoringModeState;
   confirmedSelections: Record<string, string> | null;
+  onIdleReset?: () => void;
   onDisplayYawChange?: (yaw: number) => void;
 }) {
   const fadedPanjurli     = useGLTF("/models/Panjurli_faded.glb");
   const recoloredPanjurli = useGLTF("/models/Panjurli_recolored.glb");
   const fadedNandigona        = useGLTF("/models/Nandigona_faded.glb");
   const recoloredNandigona    = useGLTF("/models/Nandigona_recolored.glb");
+  const panjurliPartIDTexture  = useTexture("/models/Panjurli_MaskColorMap.png");
   const nandigonaPartIDTexture = useTexture("/models/Nandigona_MaskColorMap.png");
+  const fadedAmmanavaru        = useGLTF("/models/Ammanavaru_faded.glb");
+  const recoloredAmmanavaru    = useGLTF("/models/Ammanavaru_recolored.glb");
+  const ammanavaru_PartIDTex   = useTexture("/models/Ammanavaru_MaskColorMap.png");
 
   const previousAngleRef     = useRef<number | null>(null);
   const colorProgressRef     = useRef(0);
@@ -130,6 +136,9 @@ export function DualSculpture({
   const lastActivityRef      = useRef(Date.now());
   const hasSwitchedRef       = useRef(false);
   const displayYawRef        = useRef(0);
+  const idleResetCalledRef   = useRef(false);
+  const pendingIdleResetRef  = useRef(false);
+  const confirmedRef         = useRef(confirmedSelections);
   const [displayYaw, setDisplayYaw] = useState(0);
 
   useEffect(() => {
@@ -148,6 +157,14 @@ export function DualSculpture({
     setDisplayYaw(0);
     onDisplayYawChange?.(0);
   }, [statueIndex, controlMode, coloringModeState.active]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    confirmedRef.current = confirmedSelections;
+    if (confirmedSelections !== null) {
+      idleResetCalledRef.current  = false;
+      pendingIdleResetRef.current = false;
+    }
+  }, [confirmedSelections]);
 
   const {
     frontPair,
@@ -173,6 +190,10 @@ export function DualSculpture({
       frontPair   = createModelPair(fadedNandigona.scene, recoloredNandigona.scene);
       backPair    = createModelPair(fadedNandigona.scene, recoloredNandigona.scene);
       sourceScene = fadedNandigona.scene;
+    } else if (config.id === "ammanavaru") {
+      frontPair   = createModelPair(fadedAmmanavaru.scene, recoloredAmmanavaru.scene);
+      backPair    = createModelPair(fadedAmmanavaru.scene, recoloredAmmanavaru.scene);
+      sourceScene = fadedAmmanavaru.scene;
     } else {
       frontPair   = createProceduralPair();
       backPair    = createProceduralPair();
@@ -187,48 +208,51 @@ export function DualSculpture({
     let coloringUniforms:   ColoringUniforms | null         = null;
     let coloringMaterial:   THREE.MeshStandardMaterial | null = null;
 
-    if (config.regions && config.id === "nandigona") {
-      // Source material from faded GLB — preserves PBR properties (normals,
-      // roughness, etc.) while coloring shader overrides the diffuse color.
-      let sourceMat: THREE.MeshStandardMaterial | null = null;
-      fadedNandigona.scene.traverse((child) => {
-        if (sourceMat) return;
-        if (child instanceof THREE.Mesh) {
-          const mat = Array.isArray(child.material) ? child.material[0] : child.material;
-          if (mat instanceof THREE.MeshStandardMaterial) sourceMat = mat;
+    if (config.regions) {
+      const partIDTexture =
+        config.id === "panjurli"    ? panjurliPartIDTexture  :
+        config.id === "nandigona"   ? nandigonaPartIDTexture :
+        config.id === "ammanavaru"  ? ammanavaru_PartIDTex   :
+        null;
+
+      if (partIDTexture) {
+        let sourceMat: THREE.MeshStandardMaterial | null = null;
+        sourceScene.traverse((child) => {
+          if (sourceMat) return;
+          if (child instanceof THREE.Mesh) {
+            const mat = Array.isArray(child.material) ? child.material[0] : child.material;
+            if (mat instanceof THREE.MeshStandardMaterial) sourceMat = mat;
+          }
+        });
+
+        partIDTexture.flipY = false;
+        partIDTexture.needsUpdate = true;
+
+        if (sourceMat) {
+          const result = buildColoringMaterial(sourceMat, partIDTexture);
+          coloringMaterial = result.material;
+          coloringUniforms = result.colorUniforms;
+
+          coloringMaterial.transparent = true;
+          coloringMaterial.depthWrite  = false;
+          coloringMaterial.opacity     = 0;
+
+          const stamp = (scene: THREE.Object3D) => {
+            scene.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                child.material      = coloringMaterial!;
+                child.frustumCulled = false;
+                child.renderOrder   = 3;
+              }
+            });
+            scene.visible = false;
+          };
+
+          coloringFrontScene = sourceScene.clone(true);
+          stamp(coloringFrontScene);
+          coloringBackScene = sourceScene.clone(true);
+          stamp(coloringBackScene);
         }
-      });
-
-      // Align flipY with GLTFLoader convention (flipY=false on embedded textures)
-      nandigonaPartIDTexture.flipY = false;
-      nandigonaPartIDTexture.needsUpdate = true;
-
-      if (sourceMat) {
-        const result = buildColoringMaterial(sourceMat, nandigonaPartIDTexture);
-        coloringMaterial = result.material;
-        coloringUniforms = result.colorUniforms;
-
-        // Start invisible — useFrame drives opacity
-        coloringMaterial.transparent = true;
-        coloringMaterial.depthWrite  = false;
-        coloringMaterial.opacity     = 0;
-
-        const stamp = (scene: THREE.Object3D) => {
-          scene.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-              child.material      = coloringMaterial!;
-              child.frustumCulled = false;
-              child.renderOrder   = 3;
-            }
-          });
-          scene.visible = false; // hidden until useFrame enables it
-        };
-
-        // Clone from faded GLB — coloring mode shows faded base + selected colors
-        coloringFrontScene = fadedNandigona.scene.clone(true);
-        stamp(coloringFrontScene);
-        coloringBackScene = fadedNandigona.scene.clone(true);
-        stamp(coloringBackScene);
       }
     }
 
@@ -240,7 +264,9 @@ export function DualSculpture({
   }, [
     fadedPanjurli.scene, recoloredPanjurli.scene,
     fadedNandigona.scene, recoloredNandigona.scene,
-    nandigonaPartIDTexture, statueIndex,
+    fadedAmmanavaru.scene, recoloredAmmanavaru.scene,
+    panjurliPartIDTexture, nandigonaPartIDTexture, ammanavaru_PartIDTex,
+    statueIndex,
   ]);
 
   // Sync coloring uniforms whenever selections change
@@ -253,8 +279,6 @@ export function DualSculpture({
     if (!coloringUniforms || !config.regions) return;
     applySelectionsToMaterial(coloringUniforms, config.regions, activeSelections);
   }, [activeSelections, coloringUniforms, statueIndex]);
-
-  const hasConfirmed = confirmedSelections !== null && coloringFrontScene !== null;
 
   useFrame(() => {
     // ── Coloring mode: locked, show only coloring scene ────────────────────
@@ -288,6 +312,14 @@ export function DualSculpture({
       now - lastActivityRef.current > IDLE_TIMEOUT_MS;
 
     if (absDelta > ACTIVITY_THRESHOLD_RAD) {
+      // If idle reset was pending but user resumed before animation finished, fire it now
+      if (pendingIdleResetRef.current && !idleResetCalledRef.current) {
+        pendingIdleResetRef.current = false;
+        idleResetCalledRef.current  = true;
+        confirmedRef.current        = null;
+        colorProgressRef.current    = 0;
+        onIdleReset?.();
+      }
       lastActivityRef.current = now;
 
       const dir = delta < 0 ? "cw" : "ccw";
@@ -315,12 +347,23 @@ export function DualSculpture({
       displayYawRef.current += delta;
 
     } else if (isIdle) {
-      // Confirmed: idle returns to fully colored (1). Otherwise returns to faded (0).
-      const idleColorTarget = hasConfirmed ? 1 : 0;
+      // Mark reset as pending as soon as idle timeout fires with confirmed state
+      if (confirmedRef.current !== null && coloringFrontScene !== null && !idleResetCalledRef.current) {
+        pendingIdleResetRef.current = true;
+      }
+
+      const idleColorTarget = 0;
       colorProgressRef.current =
         Math.abs(colorProgressRef.current - idleColorTarget) > 0.001
           ? THREE.MathUtils.lerp(colorProgressRef.current, idleColorTarget, IDLE_LERP_SPEED)
           : idleColorTarget;
+
+      if (pendingIdleResetRef.current && colorProgressRef.current === 0) {
+        pendingIdleResetRef.current = false;
+        idleResetCalledRef.current  = true;
+        confirmedRef.current        = null;
+        onIdleReset?.();
+      }
 
       // Find the nearest visual zero (nearest multiple of 2π) using Math.round,
       // so large accumulated yaw values always take the shortest angular path back.
@@ -342,7 +385,7 @@ export function DualSculpture({
 
     // ── Inner helper: drive scene visibility ────────────────────────────────
     function applyOpacities(progress: number) {
-      if (hasConfirmed && coloringMaterial && coloringFrontScene && coloringBackScene) {
+      if (confirmedRef.current !== null && coloringMaterial && coloringFrontScene && coloringBackScene) {
         // Confirmed: start fully colored (progress=1), rotate right to reveal faded (progress→0).
         // Same direction as faded→recolored: right rotation decreases progress.
         setSceneOpacity(frontPair.fadedScene,    frontPair.fadedMaterials,    1 - progress);

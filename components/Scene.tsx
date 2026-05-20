@@ -40,11 +40,12 @@ export default function Scene() {
   const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
   const [displayYaw, setDisplayYaw] = useState(0);
 
-  // Exit coloring mode when switching to a statue that doesn't support it
+  // Exit coloring mode and clear painted colors when switching statues
   useEffect(() => {
     if (coloringModeState.active && !currentConfig.regions) {
       setColoringModeState(INITIAL_COLORING_STATE);
     }
+    setConfirmedSelections(null);
   }, [statueIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync mouse yaw when switching control modes
@@ -130,6 +131,7 @@ export default function Scene() {
             }
             coloringModeState={coloringModeState}
             confirmedSelections={confirmedSelections}
+            onIdleReset={() => setConfirmedSelections(null)}
             onDisplayYawChange={setDisplayYaw}
           />
         </group>
@@ -176,3 +178,5 @@ useGLTF.preload("/models/Panjurli_faded.glb");
 useGLTF.preload("/models/Panjurli_recolored.glb");
 useGLTF.preload("/models/Nandigona_faded.glb");
 useGLTF.preload("/models/Nandigona_recolored.glb");
+useGLTF.preload("/models/Ammanavaru_faded.glb");
+useGLTF.preload("/models/Ammanavaru_recolored.glb");
