@@ -31,6 +31,13 @@ export type RegionDef = {
   label: string;
   grayMin: number;
   grayMax: number;
+  focus?: RegionFocus;
+};
+
+export type RegionFocus = {
+  position: [number, number, number];
+  target: [number, number, number];
+  zoom: number;
 };
 
 export type ColoringModeState = {
