@@ -1,7 +1,7 @@
 import type { RegionDef, StatueConfig } from "./types";
 
 export const PANJURLI_REGIONS: RegionDef[] = [
-  { id: "necklace_anklets",   label: "Necklace & Anklets",   grayMin: 0.000,  grayMax: 0.0625 },
+  { id: "necklace_anklets",   label: "Necklace & Anklets",   grayMin: 0.000,  grayMax: 0.0625, focus: {position: [0, 3, 3.2], target: [0, -0.45, 0], zoom: 400,}},
   { id: "body",               label: "Body",                 grayMin: 0.0625, grayMax: 0.1875 },
   { id: "pupils_nostril",     label: "Pupils & Nostril",     grayMin: 0.1875, grayMax: 0.3125 },
   { id: "eye_whites_teeth",   label: "Eye Whites & Teeth",   grayMin: 0.3125, grayMax: 0.4375 },
@@ -58,7 +58,7 @@ export const STATUE_CONFIGS: StatueConfig[] = [
     id: "ammanavaru",
     modelRotation: [Math.PI / 2, Math.PI, 0],
     heightAxis: "z",
-    autoBaseRadiusFactor: 0.75,
+    autoBaseRadiusFactor: 0.9,
     baseYaw: 0,
     partIDTexturePath: "/models/Ammanavaru_MaskColorMap.png",
     regions: AMMANAVARU_REGIONS,
