@@ -14,7 +14,6 @@ import {
 import { STATUE_CONFIGS } from "./scene/config";
 import { useZigSimYaw } from "./scene/useZigSimYaw";
 import { DualSculpture } from "./scene/DualSculpture";
-import { ColoringPanel } from "./scene/ColoringPanel";
 import {
   MusicControl,
   ControlModeToggle,
@@ -25,10 +24,11 @@ import {
 type SculptureKey = "panjurli" | "nandigona" | "ammanavaru";
 
 type ControlState = {
-  sculptureId?: string;
+  sculptureId?: SculptureKey;
   mode?: "archive" | "interpretation" | "recoloring";
   selectedPart?: string | null;
   selectedColor?: string | null;
+  colorSelections?: Record<string, string>;
 };
 
 export default function Scene() {
@@ -42,6 +42,18 @@ export default function Scene() {
     STATUE_CONFIGS.findIndex((config) => config.id === activeSculpture)
   );
 
+  const [mouseYaw, setMouseYaw] = useState(0);
+  const isDraggingRef = useRef(false);
+  const previousPointerXRef = useRef<number | null>(null);
+
+  const [coloringModeState, setColoringModeState] =
+    useState<ColoringModeState>(INITIAL_COLORING_STATE);
+  const [confirmedSelections, setConfirmedSelections] =
+    useState<Record<string, string> | null>(null);
+
+  const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
+  const [displayYaw, setDisplayYaw] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -51,15 +63,30 @@ export default function Scene() {
         if (!response.ok) return;
 
         const data = (await response.json()) as ControlState;
-        const nextSculpture = data.sculptureId;
 
         if (
-          nextSculpture === "panjurli" ||
-          nextSculpture === "nandigona" ||
-          nextSculpture === "ammanavaru"
+          data.sculptureId === "panjurli" ||
+          data.sculptureId === "nandigona" ||
+          data.sculptureId === "ammanavaru"
         ) {
-          setActiveSculpture(nextSculpture);
+          setActiveSculpture(data.sculptureId);
         }
+
+        if (data.mode === "recoloring") {
+          const selections = data.colorSelections ?? {};
+
+          setColoringModeState({
+            active: true,
+            activeRegion: data.selectedPart ?? null,
+            selections,
+          });
+
+          setConfirmedSelections(selections);
+          return;
+        }
+
+        setColoringModeState(INITIAL_COLORING_STATE);
+        setConfirmedSelections(null);
       } catch (error) {
         console.warn("Could not read screen control state:", error);
       }
@@ -76,34 +103,13 @@ export default function Scene() {
     };
   }, []);
 
-  const [mouseYaw, setMouseYaw] = useState(0);
-  const isDraggingRef = useRef(false);
-  const previousPointerXRef = useRef<number | null>(null);
-
-  const [coloringModeState, setColoringModeState] =
-    useState<ColoringModeState>(INITIAL_COLORING_STATE);
-  const [confirmedSelections, setConfirmedSelections] =
-    useState<Record<string, string> | null>(null);
-
-  const currentConfig = STATUE_CONFIGS[statueIndex];
-  const canColor = !!currentConfig.regions;
-  const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
-  const [displayYaw, setDisplayYaw] = useState(0);
-
-  // Exit coloring mode and clear painted colors when switching statues
   useEffect(() => {
-    if (coloringModeState.active && !currentConfig.regions) {
-      setColoringModeState(INITIAL_COLORING_STATE);
-    }
     setConfirmedSelections(null);
-  }, [statueIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [statueIndex]);
 
-  // Sync mouse yaw when switching control modes
   useEffect(() => {
     if (controlMode === "mouse") setMouseYaw(zigSimYaw);
   }, [controlMode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Mouse / pointer handlers ──────────────────────────────────────────────
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (controlMode !== "mouse" || coloringModeState.active) return;
@@ -128,27 +134,6 @@ export default function Scene() {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   };
-
-  // ─── Coloring handlers ─────────────────────────────────────────────────────
-
-  const handleEnterColoringMode = () =>
-    setColoringModeState({ active: true, selections: {}, activeRegion: null });
-
-  const handleSelectRegion = (id: string) =>
-    setColoringModeState((prev) => ({ ...prev, activeRegion: id }));
-
-  const handleSelectColor = (regionId: string, hex: string) =>
-    setColoringModeState((prev) => ({
-      ...prev,
-      selections: { ...prev.selections, [regionId]: hex },
-    }));
-
-  const handleConfirm = () => {
-    setConfirmedSelections({ ...coloringModeState.selections });
-    setColoringModeState(INITIAL_COLORING_STATE);
-  };
-
-  const handleCancel = () => setColoringModeState(INITIAL_COLORING_STATE);
 
   return (
     <div
@@ -197,28 +182,6 @@ export default function Scene() {
           onToggle={() =>
             setControlMode((prev) => (prev === "phone" ? "mouse" : "phone"))
           }
-        />
-      )}
-
-      {!coloringModeState.active && canColor && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          onClick={handleEnterColoringMode}
-          className="fixed bottom-6 right-6 z-50 rounded-full bg-black/50 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-black/70"
-        >
-          {confirmedSelections ? "Repaint" : "Paint"}
-        </button>
-      )}
-
-      {coloringModeState.active && currentConfig.regions && (
-        <ColoringPanel
-          regions={currentConfig.regions}
-          state={coloringModeState}
-          onSelectRegion={handleSelectRegion}
-          onSelectColor={handleSelectColor}
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
         />
       )}
     </div>
