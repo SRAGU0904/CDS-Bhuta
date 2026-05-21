@@ -10,6 +10,7 @@ import {
   type ColoringModeState,
   INITIAL_COLORING_STATE,
 } from "./scene/types";
+
 import { STATUE_CONFIGS } from "./scene/config";
 import { useZigSimYaw } from "./scene/useZigSimYaw";
 import { DualSculpture } from "./scene/DualSculpture";
@@ -21,10 +22,59 @@ import {
   ViewFrames,
 } from "./scene/UI";
 
+type SculptureKey = "panjurli" | "nandigona" | "ammanavaru";
+
+type ControlState = {
+  sculptureId?: string;
+  mode?: "archive" | "interpretation" | "recoloring";
+  selectedPart?: string | null;
+  selectedColor?: string | null;
+};
+
 export default function Scene() {
   const zigSimYaw = useZigSimYaw("/api/zigsim");
   const [controlMode, setControlMode] = useState<ControlMode>("phone");
-  const [statueIndex, setStatueIndex] = useState(0);
+  const [activeSculpture, setActiveSculpture] =
+    useState<SculptureKey>("panjurli");
+
+  const statueIndex = Math.max(
+    0,
+    STATUE_CONFIGS.findIndex((config) => config.id === activeSculpture)
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const pollControl = async () => {
+      try {
+        const response = await fetch("/api/control", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const data = (await response.json()) as ControlState;
+        const nextSculpture = data.sculptureId;
+
+        if (
+          nextSculpture === "panjurli" ||
+          nextSculpture === "nandigona" ||
+          nextSculpture === "ammanavaru"
+        ) {
+          setActiveSculpture(nextSculpture);
+        }
+      } catch (error) {
+        console.warn("Could not read screen control state:", error);
+      }
+    };
+
+    pollControl();
+    const interval = window.setInterval(() => {
+      if (!cancelled) pollControl();
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const [mouseYaw, setMouseYaw] = useState(0);
   const isDraggingRef = useRef(false);
@@ -126,9 +176,10 @@ export default function Scene() {
             yaw={activeYaw}
             controlMode={controlMode}
             statueIndex={statueIndex}
-            onSwitchStatue={() =>
-              setStatueIndex((prev) => (prev + 1) % STATUE_CONFIGS.length)
-            }
+            onSwitchStatue={() => {
+              const nextIndex = (statueIndex + 1) % STATUE_CONFIGS.length;
+              setActiveSculpture(STATUE_CONFIGS[nextIndex].id as SculptureKey);
+            }}
             coloringModeState={coloringModeState}
             confirmedSelections={confirmedSelections}
             onIdleReset={() => setConfirmedSelections(null)}

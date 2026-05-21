@@ -64,3 +64,5 @@ export const STATUE_CONFIGS: StatueConfig[] = [
     regions: AMMANAVARU_REGIONS,
   },
 ];
+
+

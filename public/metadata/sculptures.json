@@ -42,21 +42,21 @@
     }
   },
   {
-    "id": "Dhumraksha buta deity",
+    "id": "Nandigona buta deity",
     "object": {
-      "name": "Dhumraksha buta deity",
-      "accession_number": "20f41ac5",
-      "deprecated_accession_number": "126"
+      "name": "Nandigona buta deity",
+      "accession_number": "5ae1306f",
+      "deprecated_accession_number": "130"
     },
-    "description": "Carved, formerly polychromed form of a of a male spirit deity, possibly a mythical male figure. The visage is fierce with long moustache twinned with equally long curving canine teeth, grim expression and large staring eyes.  There is a tight choker and a short chain with a pendant around his neck and a longer strand of beads on his chest. The stance is erect with an indrawn breath accentuating the midsection. A braided sacred thread falls diagonally across the chest. The arm held at right angle has a shallow bowl possibly for holy ash. The other arm is missing. The belt of large bells tied around his waist is prominent, an example of ceremonial jewellery characteristic of spirit propitiation rituals.",
+    "description": "Carved, formerly polychromed form of a theriomorphic spirit deity, with the head of a Nandi atop a human physique. The male figure has a commanding appearance, a tall frame, broad shoulders, erect posture with legs apart. The head is weathered and no details other than the raised ears remain of the bovine face. The hands are at right angles to the chest with one of them holding the remnants of a shield or a club. The other arm looks like it might have held a weapon previously which is missing now.  There is a short chain at the neck with a oval pendant and a braided sacred thread falls diagonally across the chest. The lower garment has two folds and below it the clearly carved knees caps are visible. There are anklets around the ankles.",
     "dimensions": {
-      "height_cm": "165,5",
-      "width_cm": "52",
-      "depth_cm": "45"
+      "height_cm": "164",
+      "width_cm": "42",
+      "depth_cm": "39"
     },
     "historical": {
       "dateable_period_ad": "20th Century",
-      "provenance": "Mekekattu Nandikeshwara Temple, Karnataka",
+      "provenance": "Mekekattu Nandikeshwara Temple, Karnataka 576210, India",
       "acquisition_method": "Donation",
       "current_location": "NBGF9"
     },
@@ -66,9 +66,9 @@
     },
     "archive_metadata": {
       "function_usage": "Ritual",
-      "inscriptions_markers": "3921 Number seen on the elevation",
+      "inscriptions_markers": "3422 Numbers seen",
       "curatorial_note": "",
-      "condition_assessment": "Dust accumulated, crack, white color"
+      "condition_assessment": "Dust accumulated, discoloration, 2 hands removable"
     },
     "interpretation": {
       "type": "",
@@ -84,21 +84,21 @@
     }
   },
   {
-    "id": "Timma/dog",
+    "id": "Ammanavaru female buta deity",
     "object": {
-      "name": "Timma/dog",
-      "accession_number": "081842a7",
-      "deprecated_accession_number": "136"
+      "name": "Ammanavaru female buta deity",
+      "accession_number": "a2cd8e10",
+      "deprecated_accession_number": "45"
     },
-    "description": "Carved, formerly polychromed example of a zoomorphic form, a dog. The dog has the typical characteristics of such deified forms, bared teeth and outstretched tongue. In this case, they make it look suitably canine and similar to the bovine objects with these features. A chain with interlinks is snug around the neck and there is also a strikingly visible ritual string of bells. The upraised tail with a tiny curl at the tip and a belt around the hip are the other notable features.",
+    "description": "Sculpted, formerly polychromed form of the spirit deity, believed to be a mother goddess. She is seated in a typical posture, i.e. one leg folded across the saddle and another dropping down on one side. Her hair is tied onto one side, in a bun, one of the typical styles common to female deities. Both her arms are bent at right angles to her torso and the weapons she usually holds are missing. She is on her mount, a bull, called Akasa Nandi. A vestige of the wing (on the left side in this image) can be seen on the side of the bull.",
     "dimensions": {
-      "height_cm": "61",
-      "width_cm": "29",
-      "depth_cm": "118"
+      "height_cm": "140",
+      "width_cm": "60,2",
+      "depth_cm": "167"
     },
     "historical": {
       "dateable_period_ad": "20th Century",
-      "provenance": "Mekekattu Nandikeshwara Temple, Karnataka 576210, India",
+      "provenance": "Mekekattu Nandikeshwara Temple, Karnataka",
       "acquisition_method": "Donation",
       "current_location": "NBGF3"
     },
@@ -108,9 +108,9 @@
     },
     "archive_metadata": {
       "function_usage": "Ritual",
-      "inscriptions_markers": "",
-      "curatorial_note": "",
-      "condition_assessment": ""
+      "inscriptions_markers": "3930 & 3907 Numbers seen",
+      "curatorial_note": "The deity is placed in the sanctum sanctorum of the Mekekattu shrine. JVM ledger to be checked for further details of object.",
+      "condition_assessment": "Visible damages to the wood, treated(?)"
     },
     "interpretation": {
       "type": "",
@@ -118,90 +118,6 @@
       "function": "",
       "meaning": "",
       "explanation": ""
-    },
-    "recoloring": {
-      "status": "Not recolored in this prototype",
-      "palette": ["#6E1E1E", "#4A1A14", "#F2F2F2", "#000000", "#C89B3C"],
-      "explanation": "To be added"
-    }
-  },
-  {
-    "id": "Naga bhairava",
-    "object": {
-      "name": "Naga bhairava",
-      "accession_number": "16fda7bd",
-      "deprecated_accession_number": "66"
-    },
-    "description": "Carved wooden, formerly polychromed form of an unidentified male spirit deity. The facial countenance is stern, with the long protuberant canines and the twin serpents wrapped around his fore head adding an element of ferocity.  There is a short chain with a pendant around his neck and a longer strand of beads on his chest. The stance is erect with an indrawn breath accentuating the midsection. The belt of large bells tied around his waist is prominent and in combination with the three tiered rope of bells around his hips and around the mid calves, depict the ceremonial jewellery characteristic of spirit propitiation rituals. The shorts like garment has a long fall of cloth at the center which reaches to the ground.",
-    "dimensions": {
-      "height_cm": "160",
-      "width_cm": "48",
-      "depth_cm": "26"
-    },
-    "historical": {
-      "dateable_period_ad": "20th Century",
-      "provenance": "Mekekattu Nandikeshwara Temple, Karnataka",
-      "acquisition_method": "Donation",
-      "current_location": "NBGF9"
-    },
-    "classification": {
-      "category": "Butas",
-      "materials": "Wood"
-    },
-    "archive_metadata": {
-      "function_usage": "Ritual",
-      "inscriptions_markers": "3919 Numbers seen",
-      "curatorial_note": "The identification is not definitive at this point. Check JVM ledger 2 for details of object.",
-      "condition_assessment": "Holes seen on the face, cracks, left side one hand missing, left side leg broken"
-    },
-    "interpretation": {
-      "type": "",
-      "heads": "",
-      "function": "",
-      "meaning": "",
-      "explanation": ""
-    },
-    "recoloring": {
-      "status": "Not recolored in this prototype",
-      "palette": ["#6E1E1E", "#4A1A14", "#F2F2F2", "#000000", "#C89B3C"],
-      "explanation": "To be added"
-    }
-  },
-  {
-    "id": "Gouramma female buta deity",
-    "object": {
-      "name": "Gouramma female buta deity",
-      "accession_number": "2aca8976",
-      "deprecated_accession_number": "47"
-    },
-    "description": "The carved, formerly polychromed form whose longish rendering suggests a female spirit deity classified as Gouramma. The facial contour is oblong, with large eyes and neutral expression. The hairline is fringed and there is the carved outline of a spiky flower or ornament behind the head. The hairdo, a large loose bun on one side is often seen on female deities. The ear studs are floral. There is a choker around the neck and a broad neckpiece with a pendant that falls between the conical breasts. One arm is held straight by the side and the other arm is folded at the elbow to form a right angle to the body. The fist of this folded arm which usually holds an implement or a weapon is however empty in this case. The narrow waist is accentuated by the beaded belt. The length of the drape of her lower garment that fans out in concertina folds is much longer and hides her ankles.",
-    "dimensions": {
-      "height_cm": "155",
-      "width_cm": "46",
-      "depth_cm": "52"
-    },
-    "historical": {
-      "dateable_period_ad": "20th century",
-      "provenance": "Mekekattu Nandikeshwara Temple, Karnataka",
-      "acquisition_method": "Donation",
-      "current_location": "NBGF9"
-    },
-    "classification": {
-      "category": "Butas",
-      "materials": "Wood"
-    },
-    "archive_metadata": {
-      "function_usage": "Ritual",
-      "inscriptions_markers": "3898 Numbers seen",
-      "curatorial_note": "JVM ledger 2 to be checked for details of object",
-      "condition_assessment": "crack, dust accumulated, discoloration 2 hands removable"
-    },
-    "interpretation": {
-      "type": "To be added",
-      "heads": "To be added",
-      "function": "To be added",
-      "meaning": "unknown / unclear",
-      "explanation": "To be added"
     },
     "recoloring": {
       "status": "Not recolored in this prototype",

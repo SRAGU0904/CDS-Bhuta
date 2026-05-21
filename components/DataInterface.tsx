@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type InfoLevel = "home" | "archive" | "interpretation" | "recoloring";
+type InfoLevel = "archive" | "interpretation" | "recoloring";
 type DetailKey = string | null;
+type SculptureKey = "panjurli" | "nandigona" | "ammanavaru";
 
 type SculptureMetadata = {
   id: string;
@@ -48,47 +49,109 @@ type SculptureMetadata = {
   };
 };
 
+type FinalSculpture = {
+  key: SculptureKey;
+  name: string;
+  accession: string;
+  aliases: string[];
+};
+
+type RecolorComponent = {
+  label: string;
+  grey: string;
+  hex: string;
+  rgb: string;
+};
+
+const finalSculptures: FinalSculpture[] = [
+  {
+    key: "panjurli",
+    name: "Panjurli",
+    accession: "11243173",
+    aliases: ["panjurli", "11243173"],
+  },
+  {
+    key: "nandigona",
+    name: "Nandigona",
+    accession: "5ae1306f",
+    aliases: ["nandigona", "5ae1306f"],
+  },
+  {
+    key: "ammanavaru",
+    name: "Ammanavaru",
+    accession: "a2cd8e10",
+    aliases: ["ammanavaru", "a2cd8e10"],
+  },
+];
+
 const infoLevels: {
-  id: Exclude<InfoLevel, "home">;
+  id: InfoLevel;
   title: string;
-  subtitle: string;
 }[] = [
-  {
-    id: "archive",
-    title: "Archive",
-    subtitle: "Object record",
-  },
-  {
-    id: "interpretation",
-    title: "Interpretation",
-    subtitle: "Cultural reading",
-  },
-  {
-    id: "recoloring",
-    title: "Recoloring",
-    subtitle: "Color tool",
-  },
+  { id: "archive", title: "Archive" },
+  { id: "interpretation", title: "Interpretation" },
+  { id: "recoloring", title: "Recoloring" },
 ];
 
-const recolorParts = ["Body", "Head", "Eyes", "Tusks", "Ornaments", "Details"];
+const diyPalette = ["#500C06", "#CB9A1B", "#08422B", "#000000", "#CFC4AA", "#1C3A7C"];
 
-const defaultPalette = [
-  "#6E1E1E",
-  "#4A1A14",
-  "#F2F2F2",
-  "#000000",
-  "#1A0F0A",
-  "#C89B3C",
-];
+const recolorComponentsBySculpture: Record<SculptureKey, RecolorComponent[]> = {
+  nandigona: [
+    { label: "Necklace", grey: "0.000", hex: "#000000", rgb: "0, 0, 0" },
+    { label: "Body", grey: "0.125", hex: "#202020", rgb: "32, 32, 32" },
+    { label: "Pupils & Nostril", grey: "0.250", hex: "#404040", rgb: "64, 64, 64" },
+    { label: "Eye whites & Teeth", grey: "0.375", hex: "#606060", rgb: "96, 96, 96" },
+    { label: "Lower garment", grey: "0.500", hex: "#808080", rgb: "128, 128, 128" },
+    { label: "Waist ornament", grey: "0.625", hex: "#A0A0A0", rgb: "160, 160, 160" },
+    { label: "Chest sash", grey: "0.875", hex: "#E0E0E0", rgb: "224, 224, 224" },
+    { label: "Anklets", grey: "1.000", hex: "#FFFFFF", rgb: "255, 255, 255" },
+  ],
+  panjurli: [
+    { label: "Necklace & Anklets", grey: "0.000", hex: "#000000", rgb: "0, 0, 0" },
+    { label: "Body", grey: "0.125", hex: "#202020", rgb: "32, 32, 32" },
+    { label: "Pupils & Nostril", grey: "0.250", hex: "#404040", rgb: "64, 64, 64" },
+    { label: "Eye whites & Teeth", grey: "0.375", hex: "#606060", rgb: "96, 96, 96" },
+    { label: "Nose", grey: "0.500", hex: "#808080", rgb: "128, 128, 128" },
+    { label: "Face motif outline", grey: "0.625", hex: "#A0A0A0", rgb: "160, 160, 160" },
+    { label: "Face motif filling", grey: "0.750", hex: "#C0C0C0", rgb: "192, 192, 192" },
+    { label: "Lips", grey: "1.000", hex: "#FFFFFF", rgb: "255, 255, 255" },
+  ],
+  ammanavaru: [
+    { label: "Body", grey: "0.000", hex: "#000000", rgb: "0, 0, 0" },
+    { label: "Ornaments", grey: "0.125", hex: "#202020", rgb: "32, 32, 32" },
+    { label: "Hair & Pupils", grey: "0.250", hex: "#404040", rgb: "64, 64, 64" },
+    { label: "Eye whites", grey: "0.375", hex: "#606060", rgb: "96, 96, 96" },
+    { label: "Upper Garment", grey: "0.500", hex: "#808080", rgb: "128, 128, 128" },
+    { label: "Lower Garment", grey: "0.625", hex: "#A0A0A0", rgb: "160, 160, 160" },
+    { label: "Front Apron", grey: "0.750", hex: "#C0C0C0", rgb: "192, 192, 192" },
+    { label: "Bull Horns", grey: "0.875", hex: "#E0E0E0", rgb: "224, 224, 224" },
+    { label: "Bull Wings", grey: "1.000", hex: "#FFFFFF", rgb: "255, 255, 255" },
+  ],
+};
+
+async function updateScreenControl(update: {
+  sculptureId?: string;
+  mode?: InfoLevel;
+  selectedPart?: string | null;
+  selectedColor?: string | null;
+}) {
+  await fetch("/api/control", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(update),
+  });
+}
 
 function getColorLabel(color: string) {
   const colorMap: Record<string, string> = {
-    "#6E1E1E": "Dark red",
-    "#4A1A14": "Deep brown-red",
-    "#F2F2F2": "White",
+    "#500C06": "Deep red",
+    "#CB9A1B": "Gold ochre",
+    "#08422B": "Dark green",
     "#000000": "Black",
-    "#1A0F0A": "Dark brown",
-    "#C89B3C": "Gold",
+    "#CFC4AA": "Warm ivory",
+    "#1C3A7C": "Indigo blue",
   };
 
   return colorMap[color.toUpperCase()] || color;
@@ -110,29 +173,50 @@ function cleanValue(value?: string) {
   return value;
 }
 
-function MenuCard({
+function matchesFinalSculpture(item: SculptureMetadata, target: FinalSculpture) {
+  const text = [
+    item.id,
+    item.object?.name,
+    item.object?.accession_number,
+    item.object?.deprecated_accession_number,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return target.aliases.some((alias) => text.includes(alias.toLowerCase()));
+}
+
+function getSculptureKey(item?: SculptureMetadata): SculptureKey {
+  if (!item) return "panjurli";
+
+  const match = finalSculptures.find((target) => matchesFinalSculpture(item, target));
+  return match?.key ?? "panjurli";
+}
+
+function DetailCard({
   title,
-  subtitle,
+  value,
   onClick,
 }: {
   title: string;
-  subtitle?: string;
+  value?: string;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className="rounded-2xl border border-white/10 bg-black/30 p-5 text-left transition hover:border-amber-300/70 hover:bg-amber-300/10"
+      className="rounded-2xl border border-white/10 bg-black/30 p-4 text-left transition hover:border-amber-300/70 hover:bg-amber-300/10"
     >
-      <p className="text-2xl font-medium text-white">{title}</p>
-      {subtitle && (
-        <p className="mt-2 text-sm leading-5 text-white/45">{subtitle}</p>
-      )}
+      <p className="text-lg font-medium text-white">{title}</p>
+      <p className="mt-2 line-clamp-2 text-sm leading-5 text-white/45">
+        {cleanValue(value)}
+      </p>
     </button>
   );
 }
 
-function DetailScreen({
+function DetailView({
   label,
   title,
   value,
@@ -145,27 +229,26 @@ function DetailScreen({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <button
-        onClick={onBack}
-        className="mb-5 w-fit rounded-full border border-white/15 px-5 py-3 text-lg text-white/70 transition hover:bg-white/10 hover:text-white"
-      >
-        ← Back
-      </button>
-
-      <div className="flex min-h-0 flex-1 flex-col rounded-[2rem] border border-white/10 bg-white/[0.04] p-8">
-        <p className="mb-4 text-sm uppercase tracking-[0.3em] text-amber-300/80">
-          {label}
-        </p>
-
-        <h2 className="text-5xl font-semibold tracking-tight text-white">
-          {title}
-        </h2>
-
-        <div className="mt-8 min-h-0 flex-1 overflow-y-auto pr-4">
-          <p className="max-w-5xl text-2xl leading-[1.45] text-white/85">
-            {cleanValue(value)}
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.28em] text-amber-300/80">
+            {label}
           </p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            {title}
+          </h2>
         </div>
+
+        <button
+          onClick={onBack}
+          className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/70 transition hover:bg-white/10 hover:text-white"
+        >
+          Back
+        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-black/30 p-6 pr-8">
+        <p className="text-xl leading-[1.45] text-white/85">{cleanValue(value)}</p>
       </div>
     </div>
   );
@@ -173,19 +256,26 @@ function DetailScreen({
 
 export default function DataInterface() {
   const [items, setItems] = useState<SculptureMetadata[]>([]);
-  const [selectedId, setSelectedId] = useState("panjurli");
-  const [level, setLevel] = useState<InfoLevel>("home");
+  const [selectedId, setSelectedId] = useState("");
+  const [level, setLevel] = useState<InfoLevel>("archive");
   const [detail, setDetail] = useState<DetailKey>(null);
-  const [selectedPart, setSelectedPart] = useState("Body");
-  const [selectedColor, setSelectedColor] = useState("#6E1E1E");
-  const [showSculptureList, setShowSculptureList] = useState(false);
+  const [selectedPart, setSelectedPart] = useState("");
+  const [selectedColor, setSelectedColor] = useState(diyPalette[0]);
+  const [colorChoices, setColorChoices] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/metadata/sculptures.json")
       .then((response) => response.json())
-      .then((data) => {
+      .then((data: SculptureMetadata[]) => {
         setItems(data);
-        if (data?.[0]?.id) {
+
+        const firstFinal = finalSculptures
+          .map((target) => data.find((item) => matchesFinalSculpture(item, target)))
+          .find(Boolean);
+
+        if (firstFinal?.id) {
+          setSelectedId(firstFinal.id);
+        } else if (data?.[0]?.id) {
           setSelectedId(data[0].id);
         }
       })
@@ -194,13 +284,39 @@ export default function DataInterface() {
       });
   }, []);
 
-  const selected = useMemo(() => {
-    return items.find((item) => item.id === selectedId) ?? items[0];
-  }, [items, selectedId]);
+  const displayItems = useMemo(() => {
+    const matched = finalSculptures
+      .map((target) => items.find((item) => matchesFinalSculpture(item, target)))
+      .filter(Boolean) as SculptureMetadata[];
 
-  const palette = selected?.recoloring?.palette?.length
-    ? selected.recoloring.palette
-    : defaultPalette;
+    return matched.length > 0 ? matched : items.slice(0, 3);
+  }, [items]);
+
+  const selected = useMemo(() => {
+    return (
+      displayItems.find((item) => item.id === selectedId) ??
+      displayItems[0] ??
+      items[0]
+    );
+  }, [displayItems, items, selectedId]);
+
+  const sculptureKey = getSculptureKey(selected);
+  const recolorComponents = recolorComponentsBySculpture[sculptureKey];
+  const completedCount = recolorComponents.filter((part) => colorChoices[part.label]).length;
+  const allPartsColored = completedCount === recolorComponents.length;
+  const activeComponent =
+    recolorComponents.find((part) => part.label === selectedPart) ?? recolorComponents[0];
+
+  useEffect(() => {
+    if (!selected) return;
+
+    const key = getSculptureKey(selected);
+    const firstPart = recolorComponentsBySculpture[key][0];
+
+    setSelectedPart(firstPart.label);
+    setSelectedColor(diyPalette[0]);
+    setColorChoices({});
+  }, [selected?.id]);
 
   const dimensions = [
     selected?.dimensions?.height_cm && `Height: ${selected.dimensions.height_cm} cm`,
@@ -240,21 +356,21 @@ export default function DataInterface() {
   const interpretationDetails: Record<string, { title: string; value?: string }> =
     {
       role: {
-        title: "Interpretive role",
+        title: "Role",
         value: selected?.interpretation?.function,
       },
       meaning: {
-        title: "Meaning category",
+        title: "Meaning",
         value: selected?.interpretation?.meaning,
       },
       explanation: {
-        title: "Interpretive explanation",
+        title: "Explanation",
         value: selected?.interpretation?.explanation,
       },
       caution: {
-        title: "Curatorial caution",
+        title: "Caution",
         value:
-          "This interpretation is a guided reading, not a final or universal explanation of the sculpture or of Bhuta worship.",
+          "This is a guided reading, not a final or universal explanation. Meanings can vary depending on community, performance, and use.",
       },
     };
 
@@ -266,319 +382,305 @@ export default function DataInterface() {
     );
   }
 
+  const currentDetails = level === "archive" ? archiveDetails : interpretationDetails;
+  const selectedDetail = detail ? currentDetails[detail] : null;
+
   return (
-    <main className="h-screen overflow-hidden bg-[#050505] p-6 text-white">
-      <section className="mx-auto h-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] p-6 shadow-2xl">
-        {level === "home" && (
-          <div className="flex h-full flex-col">
-            <div className="grid flex-1 gap-8 lg:grid-cols-[1fr_360px]">
-              <div className="relative flex flex-col justify-center">
-                <p className="mb-4 text-sm uppercase tracking-[0.25em] text-white/40">
-                  Choose sculpture
-                </p>
+    <main className="h-screen overflow-hidden bg-[#050505] p-3 text-white">
+      <section className="mx-auto grid h-full max-w-6xl grid-cols-[270px_1fr] overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] shadow-2xl">
+        <aside className="flex min-h-0 flex-col border-r border-white/10 bg-black/20 p-5">
+          <p className="text-xs uppercase tracking-[0.35em] text-amber-300">
+            iPad navigator
+          </p>
 
-                <button
-                  onClick={() => setShowSculptureList(!showSculptureList)}
-                  className="rounded-2xl border border-amber-300/70 bg-amber-300/10 p-5 text-left transition hover:bg-amber-300/15"
-                >
-                  <span className="block text-2xl font-medium">
-                    {selected.object.name}
-                  </span>
+          <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight">
+            Bhuta sculpture interface
+          </h1>
 
-                  <span className="mt-2 block text-sm text-white/45">
-                    {cleanValue(selected.classification?.category)}
-                  </span>
+          <div className="mt-7">
+            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-white/40">
+              Sculpture
+            </p>
 
-                  <span className="mt-4 block text-sm text-amber-300/80">
-                    Tap to change sculpture
-                  </span>
-                </button>
+            <div className="grid gap-2">
+              {displayItems.map((item) => {
+                const active = item.id === selected.id;
 
-                {showSculptureList && (
-                  <div className="absolute right-0 top-[calc(50%+4.5rem)] z-50 max-h-[360px] w-full overflow-y-auto rounded-2xl border border-white/10 bg-[#080808] p-3 shadow-2xl">
-                    <div className="grid gap-2">
-                      {items.map((item) => {
-                        const active = item.id === selected.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setSelectedId(item.id);
+                      setDetail(null);
 
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setSelectedId(item.id);
-                              setLevel("home");
-                              setDetail(null);
-                              setShowSculptureList(false);
-                            }}
-                            className={`rounded-xl border px-4 py-3 text-left transition ${
-                              active
-                                ? "border-amber-300/70 bg-amber-300/10"
-                                : "border-white/10 bg-black/40 hover:bg-white/[0.06]"
-                            }`}
-                          >
-                            <span className="block text-lg font-medium">
-                              {item.object.name}
-                            </span>
-
-                            <span className="mt-1 block text-xs text-white/45">
-                              {cleanValue(item.classification?.category)}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                      updateScreenControl({
+                        sculptureId: getSculptureKey(item),
+                      });
+                    }}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      active
+                        ? "border-amber-300/80 bg-amber-300/10"
+                        : "border-white/10 bg-black/25 hover:border-white/25 hover:bg-white/[0.05]"
+                    }`}
+                  >
+                    <span className="block text-base font-medium text-white">
+                      {item.object.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            <div className="border-t border-white/10 pt-6">
-              <p className="mb-4 text-sm uppercase tracking-[0.25em] text-white/40">
-                Information level
-              </p>
+          <div className="mt-7">
+            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-white/40">
+              View
+            </p>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                {infoLevels.map((item) => (
+            <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/20 p-2">
+              {infoLevels.map((item) => {
+                const active = item.id === level;
+
+                return (
                   <button
                     key={item.id}
                     onClick={() => {
                       setLevel(item.id);
                       setDetail(null);
-                    }}
-                    className="rounded-2xl border border-white/10 bg-black/30 p-5 text-left transition hover:border-amber-300/70 hover:bg-amber-300/10"
-                  >
-                    <span className="block text-2xl font-medium">
-                      {item.title}
-                    </span>
 
-                    <span className="mt-2 block text-base text-white/45">
-                      {item.subtitle}
-                    </span>
+                      updateScreenControl({
+                        mode: item.id,
+                      });
+                    }}
+                    className={`rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
+                      active
+                        ? "bg-amber-300/15 text-white"
+                        : "text-white/55 hover:bg-white/[0.06] hover:text-white"
+                    }`}
+                  >
+                    {item.title}
                   </button>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+
+        <section className="min-h-0 p-5">
+          <div className="flex h-full min-h-0 flex-col">
+            {!detail && (
+              <header className="mb-5">
+                <p className="text-xs uppercase tracking-[0.3em] text-amber-300/80">
+                  {level}
+                </p>
+                <h2 className="mt-2 text-4xl font-semibold tracking-tight">
+                  {selected.object.name}
+                </h2>
+              </header>
+            )}
+
+            {selectedDetail && level !== "recoloring" && (
+              <DetailView
+                label={level}
+                title={selectedDetail.title}
+                value={selectedDetail.value}
+                onBack={() => setDetail(null)}
+              />
+            )}
+
+            {!detail && level === "archive" && (
+              <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto pr-2">
+                {Object.entries(archiveDetails).map(([key, item]) => (
+                  <DetailCard
+                    key={key}
+                    title={item.title}
+                    value={item.value}
+                    onClick={() => setDetail(key)}
+                  />
                 ))}
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {level === "archive" && detail && archiveDetails[detail] && (
-          <DetailScreen
-            label="Archive"
-            title={archiveDetails[detail].title}
-            value={archiveDetails[detail].value}
-            onBack={() => setDetail(null)}
-          />
-        )}
-
-        {level === "interpretation" &&
-          detail &&
-          interpretationDetails[detail] && (
-            <DetailScreen
-              label="Interpretation"
-              title={interpretationDetails[detail].title}
-              value={interpretationDetails[detail].value}
-              onBack={() => setDetail(null)}
-            />
-          )}
-
-        {level === "archive" && !detail && (
-          <div className="flex h-full flex-col">
-            <button
-              onClick={() => setLevel("home")}
-              className="mb-6 w-fit rounded-full border border-white/15 px-5 py-3 text-lg text-white/70 transition hover:bg-white/10 hover:text-white"
-            >
-              ← Back
-            </button>
-
-            <div className="mb-8">
-              <p className="text-sm uppercase tracking-[0.3em] text-amber-300/80">
-                Archive
-              </p>
-              <h1 className="mt-3 text-6xl font-semibold tracking-tight">
-                {selected.object.name}
-              </h1>
-            </div>
-
-            <div className="grid flex-1 grid-cols-3 gap-4">
-              <MenuCard
-                title="Description"
-                subtitle="Short object description"
-                onClick={() => setDetail("description")}
-              />
-              <MenuCard
-                title="Materials"
-                subtitle="What the object is made from"
-                onClick={() => setDetail("materials")}
-              />
-              <MenuCard
-                title="Date / period"
-                subtitle="Historical dating"
-                onClick={() => setDetail("period")}
-              />
-              <MenuCard
-                title="Provenance"
-                subtitle="Known origin or collection history"
-                onClick={() => setDetail("provenance")}
-              />
-              <MenuCard
-                title="Dimensions"
-                subtitle="Height, width, and depth"
-                onClick={() => setDetail("dimensions")}
-              />
-              <MenuCard
-                title="Function / usage"
-                subtitle="Documented use or role"
-                onClick={() => setDetail("function")}
-              />
-            </div>
-          </div>
-        )}
-
-        {level === "interpretation" && !detail && (
-          <div className="flex h-full flex-col">
-            <button
-              onClick={() => setLevel("home")}
-              className="mb-6 w-fit rounded-full border border-white/15 px-5 py-3 text-lg text-white/70 transition hover:bg-white/10 hover:text-white"
-            >
-              ← Back
-            </button>
-
-            <div className="mb-8">
-              <p className="text-sm uppercase tracking-[0.3em] text-amber-300/80">
-                Interpretation
-              </p>
-              <h1 className="mt-3 text-6xl font-semibold tracking-tight">
-                {selected.object.name}
-              </h1>
-            </div>
-
-            <div className="grid flex-1 grid-cols-2 gap-4">
-              <MenuCard
-                title="Role"
-                subtitle="How the figure can be understood"
-                onClick={() => setDetail("role")}
-              />
-              <MenuCard
-                title="Meaning"
-                subtitle="Simplified interpretive category"
-                onClick={() => setDetail("meaning")}
-              />
-              <MenuCard
-                title="Explanation"
-                subtitle="Contextual reading"
-                onClick={() => setDetail("explanation")}
-              />
-              <MenuCard
-                title="Caution"
-                subtitle="Why this is not a definitive decoding"
-                onClick={() => setDetail("caution")}
-              />
-            </div>
-          </div>
-        )}
-
-        {level === "recoloring" && (
-          <div className="flex h-full min-h-0 flex-col">
-            <button
-              onClick={() => {
-                setLevel("home");
-                setDetail(null);
-              }}
-              className="mb-3 w-fit rounded-full border border-white/15 px-4 py-2 text-base text-white/70 transition hover:bg-white/10 hover:text-white"
-            >
-              ← Back
-            </button>
-
-            <div className="mb-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-amber-300/80">
-                Recoloring
-              </p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-                {selected.object.name}
-              </h1>
-            </div>
-
-            <div className="grid min-h-0 flex-1 grid-cols-3 gap-3">
-              <div className="min-h-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                <p className="mb-2 text-xs uppercase tracking-[0.22em] text-white/40">
-                  Part
-                </p>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {recolorParts.map((part) => (
-                    <button
-                      key={part}
-                      onClick={() => setSelectedPart(part)}
-                      className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                        selectedPart === part
-                          ? "border-amber-300/70 bg-amber-300/10 text-white"
-                          : "border-white/10 bg-black/30 text-white/60 hover:bg-white/[0.06]"
-                      }`}
-                    >
-                      {part}
-                    </button>
-                  ))}
-                </div>
+            {!detail && level === "interpretation" && (
+              <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto pr-2">
+                {Object.entries(interpretationDetails).map(([key, item]) => (
+                  <DetailCard
+                    key={key}
+                    title={item.title}
+                    value={item.value}
+                    onClick={() => setDetail(key)}
+                  />
+                ))}
               </div>
+            )}
 
-              <div className="min-h-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                <p className="mb-2 text-xs uppercase tracking-[0.22em] text-white/40">
-                  Color
-                </p>
+            {level === "recoloring" && (
+              <div className="grid min-h-0 flex-1 grid-cols-[1fr_330px] gap-4">
+                <div className="flex min-h-0 flex-col rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.25em] text-white/40">
+                      Color regions
+                    </p>
+                    <p className="text-xs text-white/45">
+                      {completedCount}/{recolorComponents.length} colored
+                    </p>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {palette.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs transition ${
-                        selectedColor === color
-                          ? "border-amber-300/70 bg-amber-300/10"
-                          : "border-white/10 bg-black/30 hover:bg-white/[0.06]"
-                      }`}
-                    >
-                      <span
-                        className="h-4 w-4 rounded-full border border-white/20"
-                        style={{ backgroundColor: color }}
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+                    <div className="grid gap-2">
+                      {recolorComponents.map((part) => {
+                        const chosenColor = colorChoices[part.label];
+                        const active = activeComponent.label === part.label;
+
+                        return (
+                          <button
+                            key={part.label}
+                            onClick={() => {
+                              setSelectedPart(part.label);
+
+                              updateScreenControl({
+                                selectedPart: part.label,
+                                selectedColor: colorChoices[part.label] ?? null,
+                              });
+                            }}
+                            className={`rounded-xl border px-4 py-3 text-left transition ${
+                              active
+                                ? "border-amber-300/80 bg-amber-300/10 text-white"
+                                : "border-white/10 bg-black/30 text-white/70 hover:bg-white/[0.06]"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-base font-medium">{part.label}</p>
+                                <p className="mt-1 text-xs text-white/35">
+                                  Grey map {part.grey} · {part.hex}
+                                </p>
+                              </div>
+
+                              <span
+                                className="h-7 w-7 shrink-0 rounded-full border border-white/20"
+                                style={{ backgroundColor: chosenColor ?? part.hex }}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex min-h-0 flex-col rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-white/40">
+                    Color palette
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {diyPalette.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          setColorChoices((previous) => ({
+                            ...previous,
+                            [activeComponent.label]: color,
+                          }));
+
+                          updateScreenControl({
+                            selectedPart: activeComponent.label,
+                            selectedColor: color,
+                          });
+                        }}
+                        className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${
+                          selectedColor === color
+                            ? "border-amber-300/80 bg-amber-300/10"
+                            : "border-white/10 bg-black/30 hover:bg-white/[0.06]"
+                        }`}
+                      >
+                        <span
+                          className="h-7 w-7 rounded-full border border-white/20"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span>
+                          <span className="block text-sm text-white/85">
+                            {getColorLabel(color)}
+                          </span>
+                          <span className="block text-xs text-white/35">{color}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-white/35">
+                      Selected region
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <div
+                        className="h-12 w-12 rounded-full border border-white/20"
+                        style={{ backgroundColor: colorChoices[activeComponent.label] ?? activeComponent.hex }}
                       />
-                      <span className="text-white/70">{getColorLabel(color)}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="min-h-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                <p className="mb-2 text-xs uppercase tracking-[0.22em] text-white/40">
-                  Preview
-                </p>
-
-                <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-12 w-12 rounded-full border border-white/20"
-                      style={{ backgroundColor: selectedColor }}
-                    />
-
-                    <div>
-                      <p className="mt-3 text-xs text-white/45">Selected color</p>
-                      <p className="text-base text-white/85">{getColorLabel(selectedColor)}</p>
+                      <div>
+                        <p className="text-base font-medium text-white">
+                          {activeComponent.label}
+                        </p>
+                        <p className="text-xs text-white/45">
+                          Grayscale key {activeComponent.hex} · RGB {activeComponent.rgb}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <p className="mt-3 text-xs text-white/45">Selected color</p>
-                  <p className="text-base text-white/85">{selectedColor}</p>
-
-                  <button className="mt-4 w-full rounded-xl border border-amber-300/60 bg-amber-300/10 px-4 py-2 text-sm font-medium text-white/90">
-                    Apply color
+                  <button className="mt-4 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/70 transition hover:bg-white/[0.06]">
+                    View full sculpture
                   </button>
 
-                  <p className="mt-2 text-[11px] leading-4 text-white/35">
-                    Prototype layout only.
-                  </p>
+                  <div className="mt-auto grid grid-cols-3 gap-2 pt-4">
+                    <button
+                      onClick={() => {
+                        setSelectedPart(recolorComponents[0].label);
+                        setSelectedColor(diyPalette[0]);
+                        setColorChoices({});
+
+                        updateScreenControl({
+                          selectedPart: null,
+                          selectedColor: null,
+                        });
+                      }}
+                      className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white/70 transition hover:bg-white/[0.06]"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      disabled={!allPartsColored}
+                      className={`rounded-xl border px-3 py-3 text-sm font-medium transition ${
+                        allPartsColored
+                          ? "border-amber-300/70 bg-amber-300/10 text-white hover:bg-amber-300/15"
+                          : "border-white/10 bg-white/[0.03] text-white/30"
+                      }`}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedPart(recolorComponents[0].label);
+                        setSelectedColor(diyPalette[0]);
+                        setColorChoices({});
+
+                        updateScreenControl({
+                          selectedPart: null,
+                          selectedColor: null,
+                        });
+                      }}
+                      className="rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white/70 transition hover:bg-white/[0.06]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </section>
       </section>
     </main>
   );
