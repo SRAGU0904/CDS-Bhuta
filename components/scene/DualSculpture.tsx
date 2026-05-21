@@ -33,18 +33,45 @@ import {
   buildColoringMaterial,
   applySelectionsToMaterial,
 } from "./coloringMaterial";
+import { pedestalVertexShader, pedestalFragmentShader } from "./pedestalShader";
 
 
 // ─── Pedestal ─────────────────────────────────────────────────────────────────
+
+const PEDESTAL_TEXTURE = "/image/wood-texture-close-up.jpg";
 
 export function Pedestal({ metrics }: { metrics: SculptureMetrics | null }) {
   const pedestalHeight = metrics ? Math.max(0.2, metrics.renderedHeight * 0.15) : 0.3;
   const posY = metrics ? metrics.renderedBottomInGroup - pedestalHeight / 2 : -0.35;
 
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+  const texture = useTexture(PEDESTAL_TEXTURE);
+
+  const uniforms = useMemo(() => {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return {
+      uCamPos:   { value: new THREE.Vector3(0, 1, 5) },
+      uTexture:  { value: texture },
+    };
+  }, [texture]);
+
+  useFrame(({ camera }) => {
+    if (matRef.current) {
+      matRef.current.uniforms.uCamPos.value.copy(camera.position);
+    }
+  });
+
   return (
     <mesh position={[0, posY, 0]}>
       <cylinderGeometry args={[PEDESTAL_TOP_RADIUS, PEDESTAL_BOTTOM_RADIUS, pedestalHeight, 64]} />
-      <meshStandardMaterial color="#333333" />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={pedestalVertexShader}
+        fragmentShader={pedestalFragmentShader}
+        uniforms={uniforms}
+      />
     </mesh>
   );
 }
@@ -386,18 +413,16 @@ export function DualSculpture({
     // ── Inner helper: drive scene visibility ────────────────────────────────
     function applyOpacities(progress: number) {
       if (confirmedRef.current !== null && coloringMaterial && coloringFrontScene && coloringBackScene) {
-        // Confirmed: start fully colored (progress=1), rotate right to reveal faded (progress→0).
-        // Same direction as faded→recolored: right rotation decreases progress.
-        setSceneOpacity(frontPair.fadedScene,    frontPair.fadedMaterials,    1 - progress);
+        setSceneOpacity(frontPair.fadedScene,    frontPair.fadedMaterials,    1);
         setSceneOpacity(frontPair.recoloredScene,frontPair.recoloredMaterials,0);
-        setSceneOpacity(backPair.fadedScene,     backPair.fadedMaterials,     1 - progress);
+        setSceneOpacity(backPair.fadedScene,     backPair.fadedMaterials,     1);
         setSceneOpacity(backPair.recoloredScene, backPair.recoloredMaterials, 0);
         setColoringOpacity(coloringMaterial, coloringFrontScene, coloringBackScene, progress);
       } else {
-        // faded → original recolored GLB
-        setSceneOpacity(frontPair.fadedScene,    frontPair.fadedMaterials,    1 - progress);
+        // faded stays fully opaque; recolored fades in on top — composite is always opaque
+        setSceneOpacity(frontPair.fadedScene,    frontPair.fadedMaterials,    1);
         setSceneOpacity(frontPair.recoloredScene,frontPair.recoloredMaterials,progress);
-        setSceneOpacity(backPair.fadedScene,     backPair.fadedMaterials,     1 - progress);
+        setSceneOpacity(backPair.fadedScene,     backPair.fadedMaterials,     1);
         setSceneOpacity(backPair.recoloredScene, backPair.recoloredMaterials, progress);
         if (coloringMaterial && coloringFrontScene && coloringBackScene) {
           setColoringOpacity(coloringMaterial, coloringFrontScene, coloringBackScene, 0);
