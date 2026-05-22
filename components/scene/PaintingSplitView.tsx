@@ -58,9 +58,11 @@ function PaintingCamera({ focus }: { focus: RegionFocus | null }) {
 function PaintingSculpture({
   statueIndex,
   coloringModeState,
+  viewYawOffset = 0,
 }: {
   statueIndex: number;
   coloringModeState: ColoringModeState;
+  viewYawOffset?: number;
 }) {
   const fadedPanjurli = useGLTF("/models/Panjurli_faded.glb");
   const fadedNandigona = useGLTF("/models/Nandigona_faded.glb");
@@ -145,7 +147,7 @@ function PaintingSculpture({
       <Pedestal metrics={metrics} />
       <group
         position={[0, MODEL_POSITION_Y, 0]}
-        rotation={[0, config.baseYaw ?? 0, 0]}
+        rotation={[0, (config.baseYaw ?? 0) + viewYawOffset, 0]}
       >
         <group scale={activeScale} rotation={config.modelRotation}>
           <primitive object={scene} />
@@ -159,10 +161,12 @@ function PaintingCanvas({
   statueIndex,
   coloringModeState,
   focus,
+  viewYawOffset = 0,
 }: {
   statueIndex: number;
   coloringModeState: ColoringModeState;
   focus: RegionFocus | null;
+  viewYawOffset?: number;
 }) {
   return (
     <Canvas
@@ -181,6 +185,7 @@ function PaintingCanvas({
       <PaintingSculpture
         statueIndex={statueIndex}
         coloringModeState={coloringModeState}
+        viewYawOffset={viewYawOffset}
       />
     </Canvas>
   );
@@ -208,10 +213,14 @@ export function PaintingSplitView({
         />
       </div>
       <div className={`${frameClass} right-[15vw]`}>
+        <div className="absolute left-1/2 top-8 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-black px-4 py-2 text-base font-medium text-white">
+          Locked in painting mode
+        </div>
         <PaintingCanvas
           statueIndex={statueIndex}
           coloringModeState={coloringModeState}
-          focus={focus}
+          focus={null}
+          viewYawOffset={Math.PI}
         />
       </div>
     </div>
