@@ -47,6 +47,7 @@ export default function Scene() {
       : null;
   const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
   const [displayYaw, setDisplayYaw] = useState(0);
+  const panoramaYaw = coloringModeState.active ? activeYaw : displayYaw;
 
   // Exit coloring mode and clear painted colors when switching statues
   useEffect(() => {
@@ -117,7 +118,7 @@ export default function Scene() {
       onPointerCancel={stopDragging}
       onPointerLeave={stopDragging}
     >
-      <PanoramaFrames yaw={displayYaw} />
+      <PanoramaFrames yaw={panoramaYaw} />
 
       {coloringModeState.active ? (
         <PaintingSplitView
