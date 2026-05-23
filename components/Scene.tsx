@@ -47,7 +47,13 @@ export default function Scene() {
       : null;
   const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
   const [displayYaw, setDisplayYaw] = useState(0);
-  const panoramaYaw = coloringModeState.active ? activeYaw : displayYaw;
+  const [paintingYawStart, setPaintingYawStart] = useState({
+    activeYaw: 0,
+    displayYaw: 0,
+  });
+  const panoramaYaw = coloringModeState.active
+    ? paintingYawStart.displayYaw + (activeYaw - paintingYawStart.activeYaw)
+    : displayYaw;
 
   // Exit coloring mode and clear painted colors when switching statues
   useEffect(() => {
@@ -90,8 +96,10 @@ export default function Scene() {
 
   // ─── Coloring handlers ─────────────────────────────────────────────────────
 
-  const handleEnterColoringMode = () =>
+  const handleEnterColoringMode = () => {
+    setPaintingYawStart({ activeYaw, displayYaw });
     setColoringModeState({ active: true, selections: {}, activeRegion: null });
+  };
 
   const handleSelectRegion = (id: string) =>
     setColoringModeState((prev) => ({ ...prev, activeRegion: id }));
