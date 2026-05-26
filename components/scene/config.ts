@@ -30,8 +30,8 @@ export const NANDIGONA_REGIONS: RegionDef[] = [
   { id: "eye_whites",     label: "Eye Whites & Teeth", grayMin: 0.3125, grayMax: 0.4375, focus: {position: [1, -1, 3.2], target: [0, 0.3, 0], zoom: 1000,} },
   { id: "lower_garment",  label: "Lower Garment",      grayMin: 0.4375, grayMax: 0.5625, focus: {position: [0, 0, 3.2], target: [0, -0.3, 0], zoom: 900,} },
   { id: "waist_ornament", label: "Waist Ornament",     grayMin: 0.5625, grayMax: 0.6875, focus: {position: [0, 0, 3.2], target: [0, -0.3, 0], zoom: 900,} },
-  { id: "chest_sash",     label: "Chest Sash",         grayMin: 0.8125, grayMax: 0.9375, focus: {position: [0, 1, 3.2], target: [0, 0, 0], zoom: 1000,} },
-  { id: "anklets",        label: "Anklets",            grayMin: 0.9375, grayMax: 1.001, focus: {position: [0, 0, 3.2], target: [0,-0.8, 0], zoom: 1000,}  },
+  { id: "chest_sash",     label: "Chest Sash",         grayMin: 0.8125, grayMax: 1.001, focus: {position: [0, 1, 3.2], target: [0, 0, 0], zoom: 1000,} },
+  { id: "anklets",        label: "Anklets",            grayMin: 0.8125, grayMax: 1.001, focus: {position: [0, 0, 3.2], target: [0,-0.8, 0], zoom: 1000,}  },
 ];
 
 export const STATUE_CONFIGS: StatueConfig[] = [
