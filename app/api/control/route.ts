@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
 type ControlState = {
-  sculptureId: string;
+  sculptureId: "panjurli" | "nandigona" | "ammanavaru";
   mode: "archive" | "interpretation" | "recoloring";
   selectedPart: string | null;
   selectedColor: string | null;
+  colorSelections: Record<string, string>;
 };
 
 let controlState: ControlState = {
@@ -12,6 +13,7 @@ let controlState: ControlState = {
   mode: "archive",
   selectedPart: null,
   selectedColor: null,
+  colorSelections: {},
 };
 
 export async function GET() {

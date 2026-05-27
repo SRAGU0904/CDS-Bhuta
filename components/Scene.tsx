@@ -23,6 +23,14 @@ import {
   ViewFrames,
 } from "./scene/UI";
 
+type ControlState = {
+  sculptureId?: string;
+  mode?: "archive" | "interpretation" | "recoloring";
+  selectedPart?: string | null;
+  selectedColor?: string | null;
+  colorSelections?: Record<string, string>;
+};
+
 export default function Scene() {
   const zigSimYaw = useZigSimYaw("/api/zigsim");
   const [controlMode, setControlMode] = useState<ControlMode>("phone");
@@ -57,18 +65,64 @@ export default function Scene() {
 
   // Exit coloring mode and clear painted colors when switching statues
   useEffect(() => {
-    if (coloringModeState.active && !currentConfig.regions) {
-      setColoringModeState(INITIAL_COLORING_STATE);
-    }
     setConfirmedSelections(null);
-  }, [statueIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [statueIndex]);
 
-  // Sync mouse yaw when switching control modes
+  useEffect(() => {
+    let cancelled = false;
+
+    const pollControl = async () => {
+      try {
+        const response = await fetch("/api/control", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const data = (await response.json()) as ControlState;
+
+        if (cancelled) return;
+
+        if (data.sculptureId) {
+          const nextIndex = STATUE_CONFIGS.findIndex(
+            (config) => config.id === data.sculptureId
+          );
+
+          if (nextIndex >= 0) {
+            setStatueIndex(nextIndex);
+          }
+        }
+
+        if (data.mode === "recoloring") {
+          const selections = data.colorSelections ?? {};
+
+          setColoringModeState({
+            active: true,
+            activeRegion: data.selectedPart ?? null,
+            selections,
+          });
+
+          setConfirmedSelections(selections);
+          return;
+        }
+
+        setColoringModeState(INITIAL_COLORING_STATE);
+        setConfirmedSelections(null);
+      } catch (error) {
+        console.warn("Could not read screen control state:", error);
+      }
+    };
+
+    pollControl();
+
+    const interval = window.setInterval(pollControl, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   useEffect(() => {
     if (controlMode === "mouse") setMouseYaw(zigSimYaw);
   }, [controlMode]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Mouse / pointer handlers ──────────────────────────────────────────────
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (controlMode !== "mouse" || coloringModeState.active) return;
@@ -171,28 +225,6 @@ export default function Scene() {
           onToggle={() =>
             setControlMode((prev) => (prev === "phone" ? "mouse" : "phone"))
           }
-        />
-      )}
-
-      {!coloringModeState.active && canColor && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          onClick={handleEnterColoringMode}
-          className="fixed bottom-6 right-6 z-50 rounded-full bg-black/50 px-4 py-2 text-sm text-white backdrop-blur-md transition hover:bg-black/70"
-        >
-          {confirmedSelections ? "Repaint" : "Paint"}
-        </button>
-      )}
-
-      {coloringModeState.active && currentConfig.regions && (
-        <ColoringPanel
-          regions={currentConfig.regions}
-          state={coloringModeState}
-          onSelectRegion={handleSelectRegion}
-          onSelectColor={handleSelectColor}
-          onConfirm={handleConfirm}
-          onCancel={handleCancel}
         />
       )}
     </div>
