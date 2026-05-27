@@ -59,9 +59,24 @@ type RecolorComponent = {
 };
 
 const finalSculptures: FinalSculpture[] = [
-  { key: "panjurli", name: "Panjurli", accession: "11243173", aliases: ["panjurli", "11243173"] },
-  { key: "nandigona", name: "Nandigona", accession: "5ae1306f", aliases: ["nandigona", "5ae1306f"] },
-  { key: "ammanavaru", name: "Ammanavaru", accession: "a2cd8e10", aliases: ["ammanavaru", "a2cd8e10"] },
+  {
+    key: "panjurli",
+    name: "Panjurli",
+    accession: "11243173",
+    aliases: ["panjurli", "11243173"],
+  },
+  {
+    key: "nandigona",
+    name: "Nandigona",
+    accession: "5ae1306f",
+    aliases: ["nandigona", "5ae1306f"],
+  },
+  {
+    key: "ammanavaru",
+    name: "Ammanavaru",
+    accession: "a2cd8e10",
+    aliases: ["ammanavaru", "a2cd8e10"],
+  },
 ];
 
 const infoLevels: { id: InfoLevel; title: string }[] = [
@@ -130,28 +145,38 @@ function getColorLabel(color: string) {
     "#CFC4AA": "Warm ivory",
     "#1C3A7C": "Indigo blue",
   };
+
   return colorMap[color.toUpperCase()] || color;
 }
 
 function cleanValue(value?: string) {
   if (!value || value.trim() === "") return "To be added";
+
   const lower = value.toLowerCase();
   if (lower.includes("add ") || lower.includes("from excel") || lower.includes("replace this")) {
     return "To be added";
   }
+
   return value;
 }
 
 function matchesFinalSculpture(item: SculptureMetadata, target: FinalSculpture) {
-  const text = [item.id, item.object?.name, item.object?.accession_number, item.object?.deprecated_accession_number]
+  const text = [
+    item.id,
+    item.object?.name,
+    item.object?.accession_number,
+    item.object?.deprecated_accession_number,
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+
   return target.aliases.some((alias) => text.includes(alias.toLowerCase()));
 }
 
 function getSculptureKey(item?: SculptureMetadata): SculptureKey {
   if (!item) return "panjurli";
+
   const match = finalSculptures.find((target) => matchesFinalSculpture(item, target));
   return match?.key ?? "panjurli";
 }
@@ -178,9 +203,11 @@ export default function DataInterface() {
       .then((response) => response.json())
       .then((data: SculptureMetadata[]) => {
         setItems(data);
+
         const firstFinal = finalSculptures
           .map((target) => data.find((item) => matchesFinalSculpture(item, target)))
           .find(Boolean);
+
         if (firstFinal?.id) setSelectedId(firstFinal.id);
         else if (data?.[0]?.id) setSelectedId(data[0].id);
       })
@@ -191,6 +218,7 @@ export default function DataInterface() {
     const matched = finalSculptures
       .map((target) => items.find((item) => matchesFinalSculpture(item, target)))
       .filter(Boolean) as SculptureMetadata[];
+
     return matched.length > 0 ? matched : items.slice(0, 3);
   }, [items]);
 
@@ -204,8 +232,10 @@ export default function DataInterface() {
 
   useEffect(() => {
     if (!selected) return;
+
     const key = getSculptureKey(selected);
     const firstPart = recolorComponentsBySculpture[key][0];
+
     setSelectedPart(firstPart.id);
     setSelectedColor(diyPalette[0]);
     setColorChoices({});
@@ -234,7 +264,8 @@ export default function DataInterface() {
     explanation: { title: "Explanation", value: selected?.interpretation?.explanation },
     caution: {
       title: "Caution",
-      value: "This is a guided reading, not a final or universal explanation. Meanings can vary depending on community, performance, and use.",
+      value:
+        "This is a guided reading, not a final or universal explanation. Meanings can vary depending on community, performance, and use.",
     },
   };
 
@@ -244,9 +275,11 @@ export default function DataInterface() {
 
   const resetCurrentSculptureColors = () => {
     const firstPart = recolorComponents[0];
+
     setSelectedPart(firstPart.id);
     setSelectedColor(diyPalette[0]);
     setColorChoices({});
+
     updateScreenControl({
       sculptureId: sculptureKey,
       mode: "recoloring",
@@ -258,26 +291,30 @@ export default function DataInterface() {
 
   return (
     <main className="h-screen overflow-hidden bg-[#050505] p-3 text-white">
-      <section className="mx-auto grid h-full max-w-6xl grid-cols-[270px_1fr] overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] shadow-2xl">
+      <section className="mx-auto grid h-full max-w-7xl grid-cols-[280px_1fr] overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] shadow-2xl">
         <aside className="flex min-h-0 flex-col border-r border-white/10 bg-black/20 p-5">
           <p className="text-xs uppercase tracking-[0.35em] text-amber-300">iPad navigator</p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight">Bhuta sculpture interface</h1>
 
-          <div className="mt-7">
+          <div className="mt-8">
             <p className="mb-3 text-xs uppercase tracking-[0.28em] text-white/40">Sculpture</p>
-            <div className="grid gap-2">
+
+            <div className="grid gap-3">
               {displayItems.map((item) => {
                 const active = item.id === selected.id;
                 const nextKey = getSculptureKey(item);
+
                 return (
                   <button
                     key={item.id}
                     onClick={() => {
                       const firstPart = recolorComponentsBySculpture[nextKey][0];
+
                       setSelectedId(item.id);
                       setSelectedPart(firstPart.id);
                       setSelectedColor(diyPalette[0]);
                       setColorChoices({});
+
                       updateScreenControl({
                         sculptureId: nextKey,
                         mode: level,
@@ -298,47 +335,48 @@ export default function DataInterface() {
               })}
             </div>
           </div>
-
-          <div className="mt-7">
-            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-white/40">View</p>
-            <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/20 p-2">
-              {infoLevels.map((item) => {
-                const active = item.id === level;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setLevel(item.id);
-                      updateScreenControl({
-                        sculptureId: sculptureKey,
-                        mode: item.id,
-                        selectedPart: item.id === "recoloring" ? activeComponent.id : null,
-                        selectedColor: item.id === "recoloring" ? colorChoices[activeComponent.id] ?? null : null,
-                        colorSelections: item.id === "recoloring" ? colorChoices : {},
-                      });
-                    }}
-                    className={`rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
-                      active ? "bg-amber-300/15 text-white" : "text-white/55 hover:bg-white/[0.06] hover:text-white"
-                    }`}
-                  >
-                    {item.title}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </aside>
 
         <section className="min-h-0 p-5">
           <div className="flex h-full min-h-0 flex-col">
-            <header className="mb-5">
+            <header className="mb-5 border-b border-white/10 pb-5">
+              <div className="mb-6 flex flex-wrap gap-2">
+                {infoLevels.map((item) => {
+                  const active = item.id === level;
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setLevel(item.id);
+
+                        updateScreenControl({
+                          sculptureId: sculptureKey,
+                          mode: item.id,
+                          selectedPart: item.id === "recoloring" ? activeComponent.id : null,
+                          selectedColor: item.id === "recoloring" ? colorChoices[activeComponent.id] ?? null : null,
+                          colorSelections: item.id === "recoloring" ? colorChoices : {},
+                        });
+                      }}
+                      className={`rounded-full border px-5 py-2.5 text-sm font-medium transition ${
+                        active
+                          ? "border-amber-300/80 bg-amber-300/15 text-white"
+                          : "border-white/10 bg-black/25 text-white/55 hover:border-white/25 hover:bg-white/[0.06] hover:text-white"
+                      }`}
+                    >
+                      {item.title}
+                    </button>
+                  );
+                })}
+              </div>
+
               <p className="text-xs uppercase tracking-[0.3em] text-amber-300/80">{level}</p>
               <h2 className="mt-2 text-4xl font-semibold tracking-tight">{selected.object.name}</h2>
             </header>
 
             {level === "archive" && (
               <div className="min-h-0 flex-1 overflow-y-auto pr-6">
-                <div className="max-w-3xl space-y-5">
+                <div className="max-w-4xl space-y-5">
                   {Object.entries(archiveDetails).map(([key, item]) => (
                     <InfoSection key={key} title={item.title} value={item.value} />
                   ))}
@@ -348,7 +386,7 @@ export default function DataInterface() {
 
             {level === "interpretation" && (
               <div className="min-h-0 flex-1 overflow-y-auto pr-6">
-                <div className="max-w-3xl space-y-5">
+                <div className="max-w-4xl space-y-5">
                   {Object.entries(interpretationDetails).map(([key, item]) => (
                     <InfoSection key={key} title={item.title} value={item.value} />
                   ))}
@@ -361,7 +399,9 @@ export default function DataInterface() {
                 <div className="flex min-h-0 flex-col rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <p className="text-xs uppercase tracking-[0.25em] text-white/40">Color regions</p>
-                    <p className="text-xs text-white/45">{Object.keys(colorChoices).length}/{recolorComponents.length} colored</p>
+                    <p className="text-xs text-white/45">
+                      {Object.keys(colorChoices).length}/{recolorComponents.length} colored
+                    </p>
                   </div>
 
                   <div className="min-h-0 flex-1 overflow-y-auto pr-2">
@@ -369,12 +409,14 @@ export default function DataInterface() {
                       {recolorComponents.map((part) => {
                         const chosenColor = colorChoices[part.id];
                         const active = activeComponent.id === part.id;
+
                         return (
                           <button
                             key={part.id}
                             onClick={() => {
                               setSelectedPart(part.id);
                               setSelectedColor(chosenColor ?? diyPalette[0]);
+
                               updateScreenControl({
                                 sculptureId: sculptureKey,
                                 mode: "recoloring",
@@ -394,6 +436,7 @@ export default function DataInterface() {
                                 <p className="text-base font-medium">{part.label}</p>
                                 <p className="mt-1 text-xs text-white/35">Choose color for this part</p>
                               </div>
+
                               <span
                                 className="h-7 w-7 shrink-0 rounded-full border border-white/20"
                                 style={{ backgroundColor: chosenColor ?? "#777777" }}
@@ -415,8 +458,10 @@ export default function DataInterface() {
                         key={color}
                         onClick={() => {
                           const nextChoices = { ...colorChoices, [activeComponent.id]: color };
+
                           setSelectedColor(color);
                           setColorChoices(nextChoices);
+
                           updateScreenControl({
                             sculptureId: sculptureKey,
                             mode: "recoloring",
@@ -442,15 +487,20 @@ export default function DataInterface() {
 
                   <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-white/35">Selected region</p>
+
                     <div className="mt-3 flex items-center gap-3">
                       <div
                         className="h-12 w-12 rounded-full border border-white/20"
                         style={{ backgroundColor: colorChoices[activeComponent.id] ?? "#777777" }}
                       />
+
                       <div>
                         <p className="text-base font-medium text-white">{activeComponent.label}</p>
                         <p className="text-xs text-white/45">
-                          Current color: {colorChoices[activeComponent.id] ? getColorLabel(colorChoices[activeComponent.id]) : "None"}
+                          Current color:{" "}
+                          {colorChoices[activeComponent.id]
+                            ? getColorLabel(colorChoices[activeComponent.id])
+                            : "None"}
                         </p>
                       </div>
                     </div>
