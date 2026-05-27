@@ -289,6 +289,42 @@ export default function DataInterface() {
     });
   };
 
+  const allRegionsColored =
+    recolorComponents.length > 0 &&
+    recolorComponents.every((part) => !!colorChoices[part.id]);
+
+  const saveCurrentSculptureColors = () => {
+    if (!allRegionsColored) return;
+
+    updateScreenControl({
+      sculptureId: sculptureKey,
+      mode: "archive",
+      selectedPart: null,
+      selectedColor: null,
+      colorSelections: colorChoices,
+    });
+
+    setLevel("archive");
+  };
+
+  const cancelCurrentSculptureColors = () => {
+    const firstPart = recolorComponents[0];
+
+    setSelectedPart(firstPart.id);
+    setSelectedColor(diyPalette[0]);
+    setColorChoices({});
+
+    updateScreenControl({
+      sculptureId: sculptureKey,
+      mode: "archive",
+      selectedPart: null,
+      selectedColor: null,
+      colorSelections: {},
+    });
+
+    setLevel("archive");
+  };
+
   return (
     <main className="h-screen overflow-hidden bg-[#050505] p-3 text-white">
       <section className="mx-auto grid h-full max-w-7xl grid-cols-[280px_1fr] overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035] shadow-2xl">
@@ -452,64 +488,93 @@ export default function DataInterface() {
                 <div className="flex min-h-0 flex-col rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-xs uppercase tracking-[0.25em] text-white/40">Color palette</p>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {diyPalette.map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => {
-                          const nextChoices = { ...colorChoices, [activeComponent.id]: color };
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {diyPalette.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => {
+                            const nextChoices = { ...colorChoices, [activeComponent.id]: color };
 
-                          setSelectedColor(color);
-                          setColorChoices(nextChoices);
+                            setSelectedColor(color);
+                            setColorChoices(nextChoices);
 
-                          updateScreenControl({
-                            sculptureId: sculptureKey,
-                            mode: "recoloring",
-                            selectedPart: activeComponent.id,
-                            selectedColor: color,
-                            colorSelections: nextChoices,
-                          });
-                        }}
-                        className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${
-                          selectedColor === color
-                            ? "border-amber-300/80 bg-amber-300/10"
-                            : "border-white/10 bg-black/30 hover:bg-white/[0.06]"
-                        }`}
-                      >
-                        <span className="h-7 w-7 rounded-full border border-white/20" style={{ backgroundColor: color }} />
-                        <span>
-                          <span className="block text-sm text-white/85">{getColorLabel(color)}</span>
-                          <span className="block text-xs text-white/35">{color}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                            updateScreenControl({
+                              sculptureId: sculptureKey,
+                              mode: "recoloring",
+                              selectedPart: activeComponent.id,
+                              selectedColor: color,
+                              colorSelections: nextChoices,
+                            });
+                          }}
+                          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${
+                            selectedColor === color
+                              ? "border-amber-300/80 bg-amber-300/10"
+                              : "border-white/10 bg-black/30 hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          <span className="h-7 w-7 rounded-full border border-white/20" style={{ backgroundColor: color }} />
+                          <span>
+                            <span className="block text-sm text-white/85">{getColorLabel(color)}</span>
+                            <span className="block text-xs text-white/35">{color}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
 
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-white/35">Selected region</p>
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+                      <p className="text-xs uppercase tracking-[0.24em] text-white/35">Selected region</p>
 
-                    <div className="mt-3 flex items-center gap-3">
-                      <div
-                        className="h-12 w-12 rounded-full border border-white/20"
-                        style={{ backgroundColor: colorChoices[activeComponent.id] ?? "#777777" }}
-                      />
+                      <div className="mt-3 flex items-center gap-3">
+                        <div
+                          className="h-12 w-12 rounded-full border border-white/20"
+                          style={{ backgroundColor: colorChoices[activeComponent.id] ?? "#777777" }}
+                        />
 
-                      <div>
-                        <p className="text-base font-medium text-white">{activeComponent.label}</p>
-                        <p className="text-xs text-white/45">
-                          Current color:{" "}
-                          {colorChoices[activeComponent.id]
-                            ? getColorLabel(colorChoices[activeComponent.id])
-                            : "None"}
-                        </p>
+                        <div>
+                          <p className="text-base font-medium text-white">{activeComponent.label}</p>
+                          <p className="text-xs text-white/45">
+                            Current color:{" "}
+                            {colorChoices[activeComponent.id]
+                              ? getColorLabel(colorChoices[activeComponent.id])
+                              : "None"}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-auto pt-4">
+                  <div className="mt-3 shrink-0 space-y-2 border-t border-white/10 pt-3">
+                    {!allRegionsColored && (
+                      <p className="text-xs leading-5 text-white/45">
+                        Color all regions to save, or cancel to return without coloring.
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={saveCurrentSculptureColors}
+                        disabled={!allRegionsColored}
+                        className={`rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                          allRegionsColored
+                            ? "bg-amber-300 text-black hover:bg-amber-200"
+                            : "cursor-not-allowed bg-white/10 text-white/35"
+                        }`}
+                      >
+                        Save colors
+                      </button>
+
+                      <button
+                        onClick={cancelCurrentSculptureColors}
+                        className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white/70 transition hover:bg-white/[0.06]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+
                     <button
                       onClick={resetCurrentSculptureColors}
-                      className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-white/70 transition hover:bg-white/[0.06]"
+                      className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white/70 transition hover:bg-white/[0.06]"
                     >
                       Reset colors
                     </button>
