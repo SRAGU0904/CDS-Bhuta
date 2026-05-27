@@ -104,7 +104,7 @@ export default function Scene() {
         }
 
         setColoringModeState(INITIAL_COLORING_STATE);
-        setConfirmedSelections(null);
+        setConfirmedSelections(data.colorSelections && Object.keys(data.colorSelections).length > 0 ? data.colorSelections : null);
       } catch (error) {
         console.warn("Could not read screen control state:", error);
       }
@@ -204,9 +204,6 @@ export default function Scene() {
               yaw={activeYaw}
               controlMode={controlMode}
               statueIndex={statueIndex}
-              onSwitchStatue={() =>
-                setStatueIndex((prev) => (prev + 1) % STATUE_CONFIGS.length)
-              }
               coloringModeState={coloringModeState}
               confirmedSelections={confirmedSelections}
               onIdleReset={() => setConfirmedSelections(null)}
