@@ -8,12 +8,14 @@ import { useGLTF } from "@react-three/drei";
 import {
   type ControlMode,
   type ColoringModeState,
+  type RegionFocus,
   INITIAL_COLORING_STATE,
 } from "./scene/types";
-
 import { STATUE_CONFIGS } from "./scene/config";
 import { useZigSimYaw } from "./scene/useZigSimYaw";
 import { DualSculpture } from "./scene/DualSculpture";
+import { ColoringPanel } from "./scene/ColoringPanel";
+import { PaintingSplitView } from "./scene/PaintingSplitView";
 import {
   MusicControl,
   ControlModeToggle,
@@ -21,10 +23,8 @@ import {
   ViewFrames,
 } from "./scene/UI";
 
-type SculptureKey = "panjurli" | "nandigona" | "ammanavaru";
-
 type ControlState = {
-  sculptureId?: SculptureKey;
+  sculptureId?: string;
   mode?: "archive" | "interpretation" | "recoloring";
   selectedPart?: string | null;
   selectedColor?: string | null;
@@ -34,13 +34,7 @@ type ControlState = {
 export default function Scene() {
   const zigSimYaw = useZigSimYaw("/api/zigsim");
   const [controlMode, setControlMode] = useState<ControlMode>("phone");
-  const [activeSculpture, setActiveSculpture] =
-    useState<SculptureKey>("panjurli");
-
-  const statueIndex = Math.max(
-    0,
-    STATUE_CONFIGS.findIndex((config) => config.id === activeSculpture)
-  );
+  const [statueIndex, setStatueIndex] = useState(0);
 
   const [mouseYaw, setMouseYaw] = useState(0);
   const isDraggingRef = useRef(false);
@@ -51,8 +45,28 @@ export default function Scene() {
   const [confirmedSelections, setConfirmedSelections] =
     useState<Record<string, string> | null>(null);
 
+  const currentConfig = STATUE_CONFIGS[statueIndex];
+  const canColor = !!currentConfig.regions;
+  const activeRegionFocus: RegionFocus | null =
+    coloringModeState.active && currentConfig.regions
+      ? currentConfig.regions.find(
+          (region) => region.id === coloringModeState.activeRegion
+        )?.focus ?? null
+      : null;
   const activeYaw = controlMode === "phone" ? zigSimYaw : mouseYaw;
   const [displayYaw, setDisplayYaw] = useState(0);
+  const [paintingYawStart, setPaintingYawStart] = useState({
+    activeYaw: 0,
+    displayYaw: 0,
+  });
+  const panoramaYaw = coloringModeState.active
+    ? paintingYawStart.displayYaw + (activeYaw - paintingYawStart.activeYaw)
+    : displayYaw;
+
+  // Exit coloring mode and clear painted colors when switching statues
+  useEffect(() => {
+    setConfirmedSelections(null);
+  }, [statueIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,12 +78,16 @@ export default function Scene() {
 
         const data = (await response.json()) as ControlState;
 
-        if (
-          data.sculptureId === "panjurli" ||
-          data.sculptureId === "nandigona" ||
-          data.sculptureId === "ammanavaru"
-        ) {
-          setActiveSculpture(data.sculptureId);
+        if (cancelled) return;
+
+        if (data.sculptureId) {
+          const nextIndex = STATUE_CONFIGS.findIndex(
+            (config) => config.id === data.sculptureId
+          );
+
+          if (nextIndex >= 0) {
+            setStatueIndex(nextIndex);
+          }
         }
 
         if (data.mode === "recoloring") {
@@ -93,19 +111,14 @@ export default function Scene() {
     };
 
     pollControl();
-    const interval = window.setInterval(() => {
-      if (!cancelled) pollControl();
-    }, 500);
+
+    const interval = window.setInterval(pollControl, 500);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
   }, []);
-
-  useEffect(() => {
-    setConfirmedSelections(null);
-  }, [statueIndex]);
 
   useEffect(() => {
     if (controlMode === "mouse") setMouseYaw(zigSimYaw);
@@ -135,6 +148,29 @@ export default function Scene() {
     }
   };
 
+  // ─── Coloring handlers ─────────────────────────────────────────────────────
+
+  const handleEnterColoringMode = () => {
+    setPaintingYawStart({ activeYaw, displayYaw });
+    setColoringModeState({ active: true, selections: {}, activeRegion: null });
+  };
+
+  const handleSelectRegion = (id: string) =>
+    setColoringModeState((prev) => ({ ...prev, activeRegion: id }));
+
+  const handleSelectColor = (regionId: string, hex: string) =>
+    setColoringModeState((prev) => ({
+      ...prev,
+      selections: { ...prev.selections, [regionId]: hex },
+    }));
+
+  const handleConfirm = () => {
+    setConfirmedSelections({ ...coloringModeState.selections });
+    setColoringModeState(INITIAL_COLORING_STATE);
+  };
+
+  const handleCancel = () => setColoringModeState(INITIAL_COLORING_STATE);
+
   return (
     <div
       className="relative h-screen w-screen touch-none bg-black"
@@ -144,34 +180,41 @@ export default function Scene() {
       onPointerCancel={stopDragging}
       onPointerLeave={stopDragging}
     >
-      <PanoramaFrames yaw={displayYaw} />
+      <PanoramaFrames yaw={panoramaYaw} />
 
-      <Canvas
-        className="relative z-10"
-        orthographic
-        gl={{ alpha: true }}
-        onCreated={({ gl }) => gl.setClearColor("#000000", 0)}
-        camera={{ position: [0, 1.0, 5], zoom: 250 }}
-      >
-        <ambientLight intensity={1.2} />
-        <directionalLight position={[3, 4, 5]} intensity={2} />
+      {coloringModeState.active ? (
+        <PaintingSplitView
+          statueIndex={statueIndex}
+          coloringModeState={coloringModeState}
+          focus={activeRegionFocus}
+        />
+      ) : (
+        <Canvas
+          className="relative z-10"
+          orthographic
+          gl={{ alpha: true }}
+          onCreated={({ gl }) => gl.setClearColor("#000000", 0)}
+          camera={{ position: [0, 1.0, 5], zoom: 250 }}
+        >
+          <ambientLight intensity={1.2} />
+          <directionalLight position={[3, 4, 5]} intensity={2} />
 
-        <group position={[0, -0.2, 0]}>
-          <DualSculpture
-            yaw={activeYaw}
-            controlMode={controlMode}
-            statueIndex={statueIndex}
-            onSwitchStatue={() => {
-              const nextIndex = (statueIndex + 1) % STATUE_CONFIGS.length;
-              setActiveSculpture(STATUE_CONFIGS[nextIndex].id as SculptureKey);
-            }}
-            coloringModeState={coloringModeState}
-            confirmedSelections={confirmedSelections}
-            onIdleReset={() => setConfirmedSelections(null)}
-            onDisplayYawChange={setDisplayYaw}
-          />
-        </group>
-      </Canvas>
+          <group position={[0, -0.2, 0]}>
+            <DualSculpture
+              yaw={activeYaw}
+              controlMode={controlMode}
+              statueIndex={statueIndex}
+              onSwitchStatue={() =>
+                setStatueIndex((prev) => (prev + 1) % STATUE_CONFIGS.length)
+              }
+              coloringModeState={coloringModeState}
+              confirmedSelections={confirmedSelections}
+              onIdleReset={() => setConfirmedSelections(null)}
+              onDisplayYawChange={setDisplayYaw}
+            />
+          </group>
+        </Canvas>
+      )}
 
       <ViewFrames />
       <MusicControl />
