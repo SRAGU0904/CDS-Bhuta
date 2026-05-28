@@ -296,13 +296,19 @@ export default function DataInterface() {
   const saveCurrentSculptureColors = () => {
     if (!allRegionsColored) return;
 
-    updateScreenControl({
+    const payload = {
       sculptureId: sculptureKey,
-      mode: "archive",
+      mode: "archive" as const,
       selectedPart: null,
       selectedColor: null,
       colorSelections: colorChoices,
-    });
+    };
+
+    updateScreenControl(payload);
+
+    const channel = new BroadcastChannel("screen-control");
+    channel.postMessage(payload);
+    channel.close();
 
     setLevel("archive");
   };

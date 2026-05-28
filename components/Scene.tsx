@@ -166,6 +166,22 @@ export default function Scene() {
   }, []);
 
   useEffect(() => {
+    const channel = new BroadcastChannel("screen-control");
+    channel.onmessage = (event) => {
+      const data = event.data as {
+        sculptureId?: string;
+        mode?: "archive" | "interpretation" | "recoloring";
+        colorSelections?: Record<string, string>;
+      };
+      if (data.mode === "archive" && data.colorSelections && Object.keys(data.colorSelections).length > 0) {
+        setColoringModeState(INITIAL_COLORING_STATE);
+        setConfirmedSelections(data.colorSelections);
+      }
+    };
+    return () => channel.close();
+  }, []);
+
+  useEffect(() => {
     if (controlMode === "mouse") setMouseYaw(zigSimYaw);
   }, [controlMode]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -11,7 +11,6 @@ import type {
 } from "./types";
 import {
   IDLE_TIMEOUT_MS,
-  SWITCH_THRESHOLD_RAD,
   ACTIVITY_THRESHOLD_RAD,
   IDLE_LERP_SPEED,
   MODEL_POSITION_Y,
@@ -121,19 +120,15 @@ function setColoringOpacity(
   opacity: number
 ) {
   const safe = THREE.MathUtils.clamp(opacity, 0, 1);
-  const isOpaque = safe >= 0.999;
   frontScene.visible = safe > 0.01;
   backScene.visible  = safe > 0.01;
   mat.opacity = safe;
-  // transparent / depthWrite 是 program 级别的状态：JS 端翻转必须同步告诉
-  // Three.js 重新评估 program，否则会出现"CPU 把材质当 opaque 排序、GPU 还
-  // 在跑 transparent shader"的状态错位 → 视觉跳变 + uniform location 报错。
-  // 仅在状态实际变化时 needsUpdate，避免每帧重编译。
-  if (mat.transparent !== !isOpaque || mat.depthWrite !== isOpaque) {
-    mat.transparent = !isOpaque;
-    mat.depthWrite  = isOpaque;
-    mat.needsUpdate = true;
-  }
+  // Keep transparent=true / depthWrite=false permanently (set during useMemo).
+  // Toggling these at the 0.999 boundary forces a WebGL program recompile
+  // (needsUpdate=true) which blanks the coloring scene for one frame — exactly
+  // the "snap to faded" jump the user sees when left-rotating back to full color.
+  // renderOrder=3 ensures the coloring layer draws after the opaque faded scene
+  // (renderOrder=1) and passes the depth test at the same Z position.
 }
 
 // ─── Dual Sculpture ───────────────────────────────────────────────────────────
@@ -142,7 +137,6 @@ export function DualSculpture({
   yaw,
   controlMode,
   statueIndex,
-  onSwitchStatue,
   coloringModeState,
   confirmedSelections,
   onIdleReset,
@@ -151,7 +145,6 @@ export function DualSculpture({
   yaw: number;
   controlMode: string;
   statueIndex: number;
-  onSwitchStatue: () => void;
   coloringModeState: ColoringModeState;
   confirmedSelections: Record<string, string> | null;
   onIdleReset?: () => void;
@@ -167,14 +160,11 @@ export function DualSculpture({
   const recoloredAmmanavaru    = useGLTF("/models/Ammanavaru_recolored.glb");
   const ammanavaru_PartIDTex   = useTexture("/models/Ammanavaru_MaskColorMap.png");
 
-  const previousAngleRef     = useRef<number | null>(null);
-  const colorProgressRef     = useRef(0);
-  const wasColoringRef       = useRef(false); // tracks previous coloringModeState.active
-  const totalRotationRef     = useRef(0);
-  const rotationDirectionRef = useRef<"cw" | "ccw" | null>(null);
-  const lastActivityRef      = useRef(Date.now());
-  const hasSwitchedRef       = useRef(false);
-  const displayYawRef        = useRef(0);
+  const previousAngleRef = useRef<number | null>(null);
+  const colorProgressRef = useRef(0);
+  const wasColoringRef   = useRef(false); // tracks previous coloringModeState.active
+  const lastActivityRef  = useRef(Date.now());
+  const displayYawRef    = useRef(0);
   const idleResetCalledRef   = useRef(false);
   const pendingIdleResetRef  = useRef(false);
   const confirmedRef         = useRef(confirmedSelections);
@@ -197,13 +187,10 @@ export function DualSculpture({
   // useFrame tick, so refs are guaranteed to be in their reset state before any
   // rendering happens.
   useLayoutEffect(() => {
-    wasColoringRef.current       = coloringModeState.active;
-    previousAngleRef.current     = null;
-    totalRotationRef.current     = 0;
-    rotationDirectionRef.current = null;
-    hasSwitchedRef.current       = false;
-    lastActivityRef.current      = Date.now();
-    displayYawRef.current        = 0;
+    wasColoringRef.current   = coloringModeState.active;
+    previousAngleRef.current = null;
+    lastActivityRef.current  = Date.now();
+    displayYawRef.current    = 0;
     setDisplayYaw(0);
     onDisplayYawChange?.(0);
   }, [statueIndex, controlMode, coloringModeState.active, onDisplayYawChange]);
@@ -219,6 +206,7 @@ export function DualSculpture({
     if (confirmedSelections !== null) {
       idleResetCalledRef.current  = false;
       pendingIdleResetRef.current = false;
+      lastActivityRef.current     = Date.now();
     }
     if (coloringModeState.active) return; // painting mode handled by useFrame's early branch
     colorProgressRef.current = confirmedSelections !== null ? 1 : 0;
@@ -389,24 +377,6 @@ export function DualSculpture({
         pendingIdleResetRef.current = false;
       }
       lastActivityRef.current = now;
-
-      const dir = delta < 0 ? "cw" : "ccw";
-      if (rotationDirectionRef.current === null) rotationDirectionRef.current = dir;
-
-      if (rotationDirectionRef.current === dir) {
-        // Same direction — accumulate progress
-        totalRotationRef.current += absDelta;
-      } else {
-        // Reversed — subtract instead of resetting; avoids sensor noise cancelling all progress
-        totalRotationRef.current = Math.max(0, totalRotationRef.current - absDelta);
-        if (totalRotationRef.current === 0) rotationDirectionRef.current = dir;
-      }
-
-      if (!hasSwitchedRef.current && totalRotationRef.current >= SWITCH_THRESHOLD_RAD) {
-        hasSwitchedRef.current = true;
-        onSwitchStatue();
-        return;
-      }
 
       const step = -delta / (Math.PI * 2);
       colorProgressRef.current = THREE.MathUtils.clamp(
