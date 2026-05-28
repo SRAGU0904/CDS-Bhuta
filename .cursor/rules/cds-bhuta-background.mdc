@@ -1,0 +1,66 @@
+---
+description: CDS-Bhuta 仓库背景：项目定位、目录结构与核心架构
+alwaysApply: true
+---
+
+# CDS-Bhuta 项目背景
+
+## 项目定位
+
+Bhuta（布塔）神像 **3D 交互博物馆原型**（CDS 课程）。双屏展陈：屏 1 展示旋转雕塑与上色，屏 2 展示馆藏元数据与解读层。用户可用手机陀螺仪（Zig Sim）或鼠标拖拽旋转；支持 faded/recolored 过渡与按部位 PartID 自定义上色。
+
+## 技术栈
+
+Next.js 16（App Router）· TypeScript · Three.js · React Three Fiber · Drei · Tailwind CSS 4
+
+## 路由与页面
+
+| 路径 | 用途 |
+|------|------|
+| `/` | 双屏导航首页 |
+| `/screen` | 3D 展示（`components/Scene.tsx`） |
+| `/data` | 元数据/解读/上色控制（`components/DataInterface.tsx`） |
+
+## 目录结构（关键路径）
+
+```
+app/                    # 页面与 API
+  api/zigsim/           # GET 最新传感器包
+  api/[...slug]/        # POST 接收 Zig Sim HTTP
+  api/control/          # 双屏共享状态（sculptureId, mode, colorSelections）
+components/
+  Scene.tsx             # 3D 根：状态、Canvas、轮询 /api/control
+  DataInterface.tsx     # 第二屏 UI，POST /api/control
+  scene/                # DualSculpture, coloringMaterial, config, useZigSimYaw, UI
+server/zigsim.ts        # 内存传感器包
+public/models/          # GLB + PartID 灰度贴图
+public/metadata/sculptures.json
+receiver.ts             # 可选 UDP→HTTP 转发 Zig Sim
+```
+
+## 三尊神像
+
+在 `components/scene/config.ts` 的 `STATUE_CONFIGS`：`panjurli`、`nandigona`、`ammanavaru`。每尊含 `partIDTexturePath` 与 `regions`（灰度区间 → 可上色部位）。新增神像：放 GLB/贴图到 `public/models/`，扩展 `STATUE_CONFIGS`，在 `Scene.tsx` 预加载 `useGLTF`，在 `DualSculpture.tsx` 处理新 `id`。
+
+## 3D 与交互要点
+
+- **DualSculpture**：前后两座；每层 faded / recolored / coloring 三场景，透明度由 `colorProgressRef` 与模式驱动。
+- **旋转**：`useZigSimYaw` 轮询 `/api/zigsim`（100ms）；同向累计约 `6π` 切换下一尊。
+- **上色**：`coloringMaterial.ts` 用 PartID 贴图 + `onBeforeCompile` GLSL；`applySelectionsToMaterial` 更新 uniform，勿重编译材质。
+- **双屏同步**：`DataInterface` POST、`Scene` 每 500ms GET `/api/control`；`mode`: `archive` | `interpretation` | `recoloring`。
+
+## 常用命令
+
+```bash
+npm install
+npm run dev      # http://localhost:3000
+npm run receiver # 可选 Zig Sim UDP 转发
+```
+
+Zig Sim：HTTP POST 到 `http://<局域网IP>:3000`，传感器选 Attitude；调试 `GET /api/zigsim`。
+
+## 修改时注意
+
+- 保持 `"use client"` 与现有 hooks/命名风格；3D 逻辑放 `components/scene/`，勿把业务塞进 `app/` 页面。
+- 浏览器可能拦截自动播放音频，需用户点击后播放 `public/audio/`。
+- README 部分描述可能滞后（如仅 Deity 可上色）；以 `config.ts` 与当前代码为准。

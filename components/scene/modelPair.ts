@@ -52,10 +52,16 @@ export function setSceneOpacity(
   const isOpaque = safeOpacity >= 0.999;
 
   materials.forEach((mat) => {
-    mat.transparent = !isOpaque;
-    mat.depthWrite = isOpaque;
     mat.opacity = safeOpacity;
-    mat.needsUpdate = true;
+    // 仅在 transparent / depthWrite 实际变化时触发 needsUpdate，避免每帧
+    // 重新编译 shader（这正是 "WebGL: INVALID_OPERATION: uniform1f: location
+    // is not from the associated program" 大量刷屏以及最终 Context Lost
+    // 的根源）。opacity 本身是 uniform，无需 needsUpdate。
+    if (mat.transparent !== !isOpaque || mat.depthWrite !== isOpaque) {
+      mat.transparent = !isOpaque;
+      mat.depthWrite  = isOpaque;
+      mat.needsUpdate = true;
+    }
   });
 }
 

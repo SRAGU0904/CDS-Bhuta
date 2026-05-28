@@ -71,6 +71,25 @@ export default function Scene() {
   useEffect(() => {
     let cancelled = false;
 
+    // Snapshot of the last polled payload — only when one of these fields actually
+    // changes do we push new state into React. Prevents 500ms polling from creating
+    // new `confirmedSelections` references that would otherwise re-fire effects in
+    // DualSculpture and break its idle-reset state machine.
+    type PolledSnapshot = {
+      sculptureId: string | null;
+      mode: NonNullable<ControlState["mode"]> | null;
+      selectedPart: string | null;
+      colorSelectionsKey: string;
+    };
+    const lastSnapshotRef: { current: PolledSnapshot } = {
+      current: {
+        sculptureId: null,
+        mode: null,
+        selectedPart: null,
+        colorSelectionsKey: "__init__",
+      },
+    };
+
     const pollControl = async () => {
       try {
         const response = await fetch("/api/control", { cache: "no-store" });
@@ -79,6 +98,24 @@ export default function Scene() {
         const data = (await response.json()) as ControlState;
 
         if (cancelled) return;
+
+        const colorSelectionsKey = JSON.stringify(data.colorSelections ?? {});
+        const snap = lastSnapshotRef.current;
+        const sculptureChanged    = (data.sculptureId   ?? null) !== snap.sculptureId;
+        const modeChanged         = (data.mode          ?? null) !== snap.mode;
+        const selectedPartChanged = (data.selectedPart  ?? null) !== snap.selectedPart;
+        const colorsChanged       = colorSelectionsKey !== snap.colorSelectionsKey;
+
+        if (!sculptureChanged && !modeChanged && !selectedPartChanged && !colorsChanged) {
+          return;
+        }
+
+        lastSnapshotRef.current = {
+          sculptureId: data.sculptureId ?? null,
+          mode: data.mode ?? null,
+          selectedPart: data.selectedPart ?? null,
+          colorSelectionsKey,
+        };
 
         if (data.sculptureId) {
           const nextIndex = STATUE_CONFIGS.findIndex(
@@ -89,6 +126,14 @@ export default function Scene() {
             setStatueIndex(nextIndex);
           }
         }
+
+        console.log(
+          "[DIAG][POLL-PUSH]",
+          "mode→", data.mode,
+          "| colors keys=", Object.keys(data.colorSelections ?? {}).length,
+          "| sculpture=", sculptureChanged, "mode=", modeChanged,
+          "part=", selectedPartChanged, "colors=", colorsChanged,
+        );
 
         if (data.mode === "recoloring") {
           const selections = data.colorSelections ?? {};
@@ -204,6 +249,9 @@ export default function Scene() {
               yaw={activeYaw}
               controlMode={controlMode}
               statueIndex={statueIndex}
+              onSwitchStatue={() =>
+                setStatueIndex((prev) => (prev + 1) % STATUE_CONFIGS.length)
+              }
               coloringModeState={coloringModeState}
               confirmedSelections={confirmedSelections}
               onIdleReset={() => setConfirmedSelections(null)}

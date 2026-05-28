@@ -150,7 +150,10 @@ function PaintingSculpture({
         rotation={[0, (config.baseYaw ?? 0) + viewYawOffset, 0]}
       >
         <group scale={activeScale} rotation={config.modelRotation}>
-          <primitive object={scene} />
+          {/* dispose={null}: shared GLB / texture references must not be
+              auto-disposed on unmount, otherwise DualSculpture's clones
+              (which share textures via the GLB cache) lose their GL handles. */}
+          <primitive object={scene} dispose={null} />
         </group>
       </group>
     </group>

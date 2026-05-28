@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -99,9 +99,14 @@ function ModelView({
   return (
     <group position={position} rotation={[0, baseYaw + yaw, 0]}>
       <group scale={scale} rotation={modelRotation}>
-        <primitive object={pair.fadedScene} />
-        <primitive object={pair.recoloredScene} />
-        {coloringScene && <primitive object={coloringScene} />}
+        {/* dispose={null} prevents R3F from auto-disposing geometry/material/
+            textures when this primitive unmounts. Critical because the scenes
+            below are clones that share TEXTURES with the cached GLB — auto
+            dispose would invalidate GL handles used by sibling clones (and
+            by PaintingSplitView). */}
+        <primitive object={pair.fadedScene} dispose={null} />
+        <primitive object={pair.recoloredScene} dispose={null} />
+        {coloringScene && <primitive object={coloringScene} dispose={null} />}
       </group>
     </group>
   );
@@ -119,9 +124,16 @@ function setColoringOpacity(
   const isOpaque = safe >= 0.999;
   frontScene.visible = safe > 0.01;
   backScene.visible  = safe > 0.01;
-  mat.opacity     = safe;
-  mat.transparent = !isOpaque;
-  mat.depthWrite  = isOpaque;
+  mat.opacity = safe;
+  // transparent / depthWrite 是 program 级别的状态：JS 端翻转必须同步告诉
+  // Three.js 重新评估 program，否则会出现"CPU 把材质当 opaque 排序、GPU 还
+  // 在跑 transparent shader"的状态错位 → 视觉跳变 + uniform location 报错。
+  // 仅在状态实际变化时 needsUpdate，避免每帧重编译。
+  if (mat.transparent !== !isOpaque || mat.depthWrite !== isOpaque) {
+    mat.transparent = !isOpaque;
+    mat.depthWrite  = isOpaque;
+    mat.needsUpdate = true;
+  }
 }
 
 // ─── Dual Sculpture ───────────────────────────────────────────────────────────
@@ -168,14 +180,25 @@ export function DualSculpture({
   const confirmedRef         = useRef(confirmedSelections);
   const [displayYaw, setDisplayYaw] = useState(0);
 
+  // ── TEMP DIAGNOSTIC: startup assert + suspicious-event logger ─────────────
+  // Confirms which IDLE_LERP_SPEED value the bundle is actually running.
   useEffect(() => {
-    const justFinishedColoring = wasColoringRef.current && !coloringModeState.active;
-    wasColoringRef.current = coloringModeState.active;
+    console.log(
+      "[DIAG][BOOT] IDLE_LERP_SPEED=", IDLE_LERP_SPEED,
+      "IDLE_TIMEOUT_MS=", IDLE_TIMEOUT_MS,
+      "(expected after fix: 0.04 / 10000)"
+    );
+  }, []);
+  const dbgPrevProgressRef = useRef<number>(-1);
+  const dbgPrevConfirmedRef = useRef<boolean | null>(null);
 
+  // Reset rotation / activity tracking when statue, control mode, or coloring mode
+  // toggles. useLayoutEffect runs synchronously after commit and before R3F's first
+  // useFrame tick, so refs are guaranteed to be in their reset state before any
+  // rendering happens.
+  useLayoutEffect(() => {
+    wasColoringRef.current       = coloringModeState.active;
     previousAngleRef.current     = null;
-    // Start at fully colored (1) when exiting coloring mode with confirmed selections,
-    // so the model immediately shows the painted result.
-    colorProgressRef.current     = (justFinishedColoring && confirmedSelections !== null) ? 1 : 0;
     totalRotationRef.current     = 0;
     rotationDirectionRef.current = null;
     hasSwitchedRef.current       = false;
@@ -183,15 +206,23 @@ export function DualSculpture({
     displayYawRef.current        = 0;
     setDisplayYaw(0);
     onDisplayYawChange?.(0);
-  }, [statueIndex, controlMode, coloringModeState.active]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [statueIndex, controlMode, coloringModeState.active, onDisplayYawChange]);
 
-  useEffect(() => {
+  // Sync `confirmedRef` and `colorProgressRef` to `confirmedSelections` in a single
+  // useLayoutEffect. Critical: this must beat R3F's first useFrame so that the
+  // first frame after a polling-induced `null → {colors}` transition does NOT
+  // briefly fall into the no-confirmed branch (which would render the museum
+  // default `recolored.glb` at full opacity — visible as a one-frame jump from
+  // user colors to museum colors and back).
+  useLayoutEffect(() => {
     confirmedRef.current = confirmedSelections;
     if (confirmedSelections !== null) {
       idleResetCalledRef.current  = false;
       pendingIdleResetRef.current = false;
     }
-  }, [confirmedSelections]);
+    if (coloringModeState.active) return; // painting mode handled by useFrame's early branch
+    colorProgressRef.current = confirmedSelections !== null ? 1 : 0;
+  }, [coloringModeState.active, confirmedSelections]);
 
   const {
     frontPair,
@@ -252,11 +283,16 @@ export function DualSculpture({
           }
         });
 
-        partIDTexture.flipY = false;
-        partIDTexture.needsUpdate = true;
+        // CRITICAL: clone the texture so that disposal in another component
+        // (e.g. PaintingSplitView when user exits coloring mode) does NOT
+        // invalidate the GL handle we're still using here. Otherwise we get
+        // "bindTexture: attempt to use a deleted object" → context lost.
+        const partIDTextureClone = partIDTexture.clone();
+        partIDTextureClone.flipY = false;
+        partIDTextureClone.needsUpdate = true;
 
         if (sourceMat) {
-          const result = buildColoringMaterial(sourceMat, partIDTexture);
+          const result = buildColoringMaterial(sourceMat, partIDTextureClone);
           coloringMaterial = result.material;
           coloringUniforms = result.colorUniforms;
 
@@ -339,13 +375,18 @@ export function DualSculpture({
       now - lastActivityRef.current > IDLE_TIMEOUT_MS;
 
     if (absDelta > ACTIVITY_THRESHOLD_RAD) {
-      // If idle reset was pending but user resumed before animation finished, fire it now
-      if (pendingIdleResetRef.current && !idleResetCalledRef.current) {
+      // User resumed activity. If idle reset was pending (progress is mid-fade),
+      // CANCEL it instead of force-zeroing — otherwise progress instantly snaps
+      // from e.g. 0.5 to 0 and branch flips from A→B in one frame, which is
+      // exactly the "突然不上色" jump the user perceives. Treat resumed activity
+      // as "user still engaged, keep their colors". If they truly walk away,
+      // another IDLE_TIMEOUT_MS of inactivity will re-arm the reset.
+      if (pendingIdleResetRef.current) {
+        console.log(
+          "[DIAG][PENDING-RESET-CANCELLED] progress=", colorProgressRef.current.toFixed(2),
+          "(user resumed mid-fade; keeping colors)"
+        );
         pendingIdleResetRef.current = false;
-        idleResetCalledRef.current  = true;
-        confirmedRef.current        = null;
-        colorProgressRef.current    = 0;
-        onIdleReset?.();
       }
       lastActivityRef.current = now;
 
@@ -409,6 +450,32 @@ export function DualSculpture({
     setDisplayYaw(displayYawRef.current);
     onDisplayYawChange?.(displayYawRef.current);
     applyOpacities(colorProgressRef.current);
+
+    // ── TEMP DIAGNOSTIC: only fire on truly suspicious events ──────────────
+    {
+      const p = colorProgressRef.current;
+      const c = confirmedRef.current !== null;
+      const prevP = dbgPrevProgressRef.current;
+      const prevC = dbgPrevConfirmedRef.current;
+      // Suspicious = progress moves > 0.2 in a single frame OR confirmed flips
+      const progressJump = prevP >= 0 && Math.abs(p - prevP) > 0.2;
+      const confirmedFlip = prevC !== null && prevC !== c;
+      if (progressJump || confirmedFlip) {
+        console.log(
+          "[DIAG][SUSPECT]",
+          progressJump ? "PROGRESS-JUMP" : "",
+          confirmedFlip ? "BRANCH-FLIP" : "",
+          "progress", prevP.toFixed(2), "→", p.toFixed(2),
+          "| confirmed", prevC, "→", c,
+          "| absDelta=", absDelta.toFixed(3),
+          "| isIdle=", isIdle,
+          "| pendingReset=", pendingIdleResetRef.current,
+          "| idleResetCalled=", idleResetCalledRef.current,
+        );
+      }
+      dbgPrevProgressRef.current = p;
+      dbgPrevConfirmedRef.current = c;
+    }
 
     // ── Inner helper: drive scene visibility ────────────────────────────────
     function applyOpacities(progress: number) {

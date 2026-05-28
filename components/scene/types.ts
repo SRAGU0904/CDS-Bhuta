@@ -3,7 +3,7 @@
 export const IDLE_TIMEOUT_MS = 10_000;
 export const SWITCH_THRESHOLD_RAD = Math.PI * 2 * 3;
 export const ACTIVITY_THRESHOLD_RAD = 0.002;
-export const IDLE_LERP_SPEED = 0.02;
+export const IDLE_LERP_SPEED = 0.04;
 
 // ─── Layout constants ──────────────────────────────────────────────────────────
 
